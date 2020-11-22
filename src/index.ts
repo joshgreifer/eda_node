@@ -37,9 +37,11 @@ import {AddAlgorithms} from "./ArrayPlus";
 import {CustomElement} from "./custom-elements/CustomElement";
 import {ConsoleElement} from "./custom-elements/ConsoleElement";
 import {ScopeElement} from "./custom-elements/ScopeElement";
+import {FaceDetectElement} from "./custom-elements/FaceDetectElement";
 import {WebSocketDataConnectionElement} from "./custom-elements/WebSocketDataConnectionElement";
 import {AutoYAxisAdjustBehaviour, DownSampleAlgorithm, RenderStyle, Scope} from "./Scope";
 import {get_server_status, open_hid_device} from "./Api";
+
 
 
 AddAlgorithms(Array.prototype);
@@ -49,6 +51,8 @@ customElements.define('custom-element', CustomElement);
 customElements.define('console-element', ConsoleElement);
 customElements.define('scope-element', ScopeElement);
 customElements.define('websocket-element', WebSocketDataConnectionElement);
+customElements.define('facedetect-element', FaceDetectElement);
+
 
 // Disable MS Edge (and probably Chrome) context menus in OSX
 document.addEventListener('contextmenu', event => { event.preventDefault() })
