@@ -1,55 +1,64 @@
 declare let cv: any;
 
+namespace cvUtils {
 
-let video = document.getElementById('videoInput');
+    export function cvError(err: any) {
+        if (typeof err === 'undefined') {
+            err = '';
+        } else if (typeof err === 'number') {
+            if (!isNaN(err)) {
+                if (typeof cv !== 'undefined') {
+                    err = 'Exception: ' + cv.exceptionFromPtr(err).msg;
+                }
+            }
+        } else if (typeof err === 'string') {
+            let ptr = Number(err.split(' ')[0]);
+            if (!isNaN(ptr)) {
+                if (typeof cv !== 'undefined') {
+                    err = 'Exception: ' + cv.exceptionFromPtr(ptr).msg;
+                }
+            }
+        } else if (err instanceof Error) {
+            err = err.stack!.replace(/\n/g, '<br>');
+        }
+        console.error(err);
+    };
 
+    async function cvCreateFileFromUrl(filename: string, url : string) : Promise<void> {
+        const resp = await fetch(url);
+        let data = new Uint8Array(await resp.arrayBuffer());
+        cv.FS_createDataFile('/', filename, data, true, false, false);
+    };
 
+    export async function cvCreateCascadeClassifier(xml_file_name: string) : Promise<any> {
+        const  classifier = new cv.CascadeClassifier();
+        const url = `${__webpack_public_path__}assets/haarcascades/${xml_file_name}`;
+        await cvCreateFileFromUrl(xml_file_name, url);
+        classifier.load(xml_file_name);
+        return classifier;
+    }
+}
 
 export class FaceDetectElement extends HTMLElement {
 
-    constructor() {
-        super();
+    private face_count_: number = 0;
+    private eyes_count_: number = 0;
+
+    public get FaceCount() { return this.face_count_; }
+    public get EyesCount() { return this.eyes_count_; }
+
+    async init(video: HTMLVideoElement, canvas: HTMLCanvasElement) {
         const self = this;
+        let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+        let dst = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+        let gray = new cv.Mat();
+        let cap = new cv.VideoCapture(video);
+        let faces = new cv.RectVector();
+        let eyes = new cv.RectVector();
+        let face_classifier = new cv.CascadeClassifier();
+        let eye_classifier = new cv.CascadeClassifier();
+        const FPS = 10;
 
-        const printError = function(err: any) {
-            if (typeof err === 'undefined') {
-                err = '';
-            } else if (typeof err === 'number') {
-                if (!isNaN(err)) {
-                    if (typeof cv !== 'undefined') {
-                        err = 'Exception: ' + cv.exceptionFromPtr(err).msg;
-                    }
-                }
-            } else if (typeof err === 'string') {
-                let ptr = Number(err.split(' ')[0]);
-                if (!isNaN(ptr)) {
-                    if (typeof cv !== 'undefined') {
-                        err = 'Exception: ' + cv.exceptionFromPtr(ptr).msg;
-                    }
-                }
-            } else if (err instanceof Error) {
-                err = err.stack!.replace(/\n/g, '<br>');
-            }
-            console.error(err);
-        };
-
-        const createFileFromUrl = function(path: string, url : string, callback: () => any) {
-            let request = new XMLHttpRequest();
-            request.open('GET', url, true);
-            request.responseType = 'arraybuffer';
-            request.onload = function(ev) {
-                if (request.readyState === 4) {
-                    if (request.status === 200) {
-                        let data = new Uint8Array(request.response);
-                        cv.FS_createDataFile('/', path, data, true, false, false);
-                        callback();
-                    } else {
-                        printError('Failed to load ' + url + ' status: ' + request.status);
-                    }
-                }
-            };
-            request.send();
-        };
 
         const constraints = {
             audio: false,
@@ -58,6 +67,67 @@ export class FaceDetectElement extends HTMLElement {
                 height: {min: 240, ideal: 240, max: 240}
             }
         };
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then( async (stream) => {
+                video.srcObject = stream;
+                const processVideo = () => {
+                    try {
+                        if (!stream) {
+                            // clean and stop.
+                            src.delete();
+                            dst.delete();
+                            gray.delete();
+                            faces.delete();
+                            face_classifier.delete();
+                            return;
+                        }
+                        const begin = Date.now();
+                        // start processing.
+                        cap.read(src);
+                        src.copyTo(dst);
+                        cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
+                        // detect faces.
+                        face_classifier.detectMultiScale(gray, faces, 1.1, 3, 0);
+                        self.face_count_ = faces.size();
+                        // draw faces.
+                        for (let i = 0; i < self.face_count_; ++i) {
+                            let face = faces.get(i);
+                            let point1 = new cv.Point(face.x, face.y);
+                            let point2 = new cv.Point(face.x + face.width, face.y + face.height);
+                            cv.rectangle(dst, point1, point2, [255, 0, 0, 255]);
+                        }
+                        eye_classifier.detectMultiScale(gray, eyes, 1.1, 3, 0);
+                        self.eyes_count_ = eyes.size();
+                        for (let i = 0; i < self.eyes_count_; ++i) {
+                            let eye = eyes.get(i);
+                            let point1 = new cv.Point(eye.x, eye.y);
+                            let point2 = new cv.Point(eye.x + eye.width, eye.y + eye.height);
+                            cv.rectangle(dst, point1, point2, [255, 255, 0, 255]);
+                        }
+
+                        cv.imshow(canvas, dst);
+                        // schedule the next one.
+                        const delay = 1000 / FPS - (Date.now() - begin);
+                        setTimeout(processVideo, delay);
+                    } catch (err) {
+                        cvUtils.cvError(err);
+                    }
+                };
+
+                // Create haar cascade classifiers
+                face_classifier = await cvUtils.cvCreateCascadeClassifier('haarcascade_frontalface_default.xml');
+                eye_classifier = await cvUtils.cvCreateCascadeClassifier('haarcascade_eye_tree_eyeglasses.xml');
+
+                // schedule the first one.
+                video.play().then( () => { setTimeout(processVideo, 0); });
+
+
+
+            });
+    }
+    constructor() {
+        super();
+        const self = this;
 
         const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'
         const video = <HTMLVideoElement>document.createElement('video');
@@ -67,7 +137,7 @@ export class FaceDetectElement extends HTMLElement {
         canvas.id = 'canvasOutput';
         const style = document.createElement('style');
         // noinspection CssInvalidPropertyValue
-        const FPS = 30;
+
 
 
         // el.innerText = this.hasAttribute('value') ? this.getAttribute('value') as string: '(value)';
@@ -87,65 +157,7 @@ export class FaceDetectElement extends HTMLElement {
 
 
 
-        cv['onRuntimeInitialized'] = () => {
-
-            let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-            let dst = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-            let gray = new cv.Mat();
-            let cap = new cv.VideoCapture(video);
-            let faces = new cv.RectVector();
-            let classifier = new cv.CascadeClassifier();
-
-            // let faceCascadeFile = 'assets/haarcascades/haarcascade_frontalface_default.xml'; // path to xml
-            let faceCascadeFile = 'haarcascade_frontalface_default.xml'; // path to xml
-
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then( stream => {
-                    video.srcObject = stream;
-                    const processVideo = () => {
-                        try {
-                            if (!stream) {
-                                // clean and stop.
-                                src.delete();
-                                dst.delete();
-                                gray.delete();
-                                faces.delete();
-                                classifier.delete();
-                                return;
-                            }
-                            let begin = Date.now();
-                            // start processing.
-                            cap.read(src);
-                            src.copyTo(dst);
-                            cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
-                            // detect faces.
-                            classifier.detectMultiScale(gray, faces, 1.1, 3, 0);
-                            // draw faces.
-                            for (let i = 0; i < faces.size(); ++i) {
-                                let face = faces.get(i);
-                                let point1 = new cv.Point(face.x, face.y);
-                                let point2 = new cv.Point(face.x + face.width, face.y + face.height);
-                                cv.rectangle(dst, point1, point2, [255, 0, 0, 255]);
-                            }
-                            cv.imshow(canvas, dst);
-                            // schedule the next one.
-                            let delay = 1000 / FPS - (Date.now() - begin);
-                            setTimeout(processVideo, delay);
-                        } catch (err) {
-                           printError(err);
-                        }
-                    };
-
-// schedule the first one.
-                    createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
-                        classifier.load(faceCascadeFile);
-
-                        video.play().then( () => { setTimeout(processVideo, 0); });
-
-                    });
-
-                });
-        };
+        cv['onRuntimeInitialized'] = async () => { await self.init(video, canvas); };
 
 
         shadow.append( style, video, canvas );

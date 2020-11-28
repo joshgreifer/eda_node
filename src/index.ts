@@ -39,8 +39,10 @@ import {ConsoleElement} from "./custom-elements/ConsoleElement";
 import {ScopeElement} from "./custom-elements/ScopeElement";
 import {FaceDetectElement} from "./custom-elements/FaceDetectElement";
 import {WebSocketDataConnectionElement} from "./custom-elements/WebSocketDataConnectionElement";
-import {AutoYAxisAdjustBehaviour, DownSampleAlgorithm, RenderStyle, Scope} from "./Scope";
+import {AutoYAxisAdjustBehaviour, DownSampleAlgorithm, RenderStyle, Scope, SignalFollowBehaviour} from "./Scope";
 import {get_server_status, open_hid_device} from "./Api";
+import {SpeechService} from "./SpeechService";
+import {CueList} from "./CueList";
 
 
 
@@ -79,6 +81,7 @@ const scopeEl = document.querySelector('scope-element') as ScopeElement;
 const websocketEl = document.querySelector('websocket-element') as WebSocketDataConnectionElement;
 const scope: Scope = scopeEl.Scope;
 
+
 scope.ChannelInfo = [{
     Name: 'EDA',
     Color: '#ffffff',
@@ -92,23 +95,38 @@ scope.SampleUnitMultiplier = 1;
 scope.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
 scope.AutoYAxisAdjustChannel = 0;
 
+// TEST TEST
+// scope.SignalFollowBehaviour = SignalFollowBehaviour.None;
 
-c.info('Connected scope to websocket.');
+console.info('Connected scope to websocket.');
 
 const connectButton = document.querySelector('#connect-button') as HTMLButtonElement;
 const statusIndicator = document.querySelector('#status-indicator') as HTMLSpanElement;
 
-connectButton.addEventListener('click', async () => {
+const passwordElement = document.querySelector('#password-input') as HTMLInputElement;
 
+passwordElement.addEventListener('input', ()=> {
+    connectButton.disabled = !passwordElement.value;
+
+});
+
+connectButton.addEventListener('click', async () => {
+    const password = passwordElement.value;
+    const speechService = new SpeechService(password, true, false);
+    await speechService.StartContinuousRecognition();
+    speechService.on('recognized', (text: string)=>{ c.message(text, 'recognized', true, 'recognizing')});
+    speechService.on('recognizing', (text: string)=>{ c.message(text, 'recognizing', true)});
     const response = await open_hid_device(1240, 61281);
-    c.info(JSON.stringify(response, null, 1));
+    console.info(JSON.stringify(response, null, 1));
+
+    scopeEl.AddCue('test 5s', 5.0);
 
 });
 
 window.setInterval(() => {
     (async () => {
         const status = await get_server_status();
-        statusIndicator.innerText = status.status;
+        statusIndicator.innerText = status.message;
     } )();
 
 }, 2000);

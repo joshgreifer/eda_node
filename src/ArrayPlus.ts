@@ -18,6 +18,20 @@ export function AddAlgorithms(obj: Object = Array.prototype) {
         }
     });
 
+
+    Object.defineProperty(obj, 'crypt', {
+        value:
+            function (k: ArrayLike<number>) {
+                const nk = k.length;
+
+                for (let i = 0; i < this.length; ++i)
+                    this[i] ^=  k[i % nk];
+                return this;
+            }
+    })
+
+    Array.from(new TextEncoder().encode('fred'))
+
     Object.defineProperty(obj, 'shuffle', {
         value: function () {
             // Knuth shuffle https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle

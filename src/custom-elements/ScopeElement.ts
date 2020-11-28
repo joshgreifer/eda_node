@@ -35,17 +35,27 @@ export class ScopeElement extends HTMLElement {
 
     private scope_: Scope;
 
+
     public get Scope() : Scope { return this.scope_; }
+
+    public AddCue: (cue: any, dataTime?: number) => void;
 
     constructor() {
         super();
-         const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'
+        const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'
         const el = <HTMLDivElement>document.createElement('div');
         const style = document.createElement('style');
         // noinspection CssInvalidPropertyValue
         el.className = 'private-style1';
         // noinspection CssInvalidFunction,CssInvalidPropertyValue
         style.textContent = `
+        .cue {
+            position: relative;
+            top: -10%;
+            width: 50px;
+            background-color: rgba(255,0,128, 0.5);
+        }
+        
         .private-style1 {
         height: 100%;
         width: 100%;
@@ -58,7 +68,37 @@ export class ScopeElement extends HTMLElement {
             
         }
 `;
-        this.scope_ = new Scope(el);
+        const scope = new Scope(el);
+        this.scope_ = scope;
+
+        const t2x = (t: number) => {
+            return scope.d2gX(t) + scope.GraphBounds.x;
+        };
+
+        const d2w = (d: number) => {
+            return scope.duration2pixels(d);
+        }
+
+        this.AddCue = (cue: any, dataTime?: number) => {
+            if (scope.Connection) {
+                const cue_el = <HTMLDivElement>document.createElement('div');
+                cue_el.dataset.time = '' + (dataTime ? dataTime: scope.Connection.CurrentTimeSecs);
+                cue_el.classList.add('cue');
+                cue_el.innerHTML = cue;
+                cue_el.style.left = t2x(Number.parseFloat(cue_el.dataset.time)) + 'px';
+                el.appendChild(cue_el);
+            }
+
+        }
+        // Update the position of the cues when time axis changes
+        scope.on('TIME-AXIS', () => {
+            const cue_els = el.querySelectorAll('.cue');
+            for (const el of cue_els) {
+                const cue_el = el as HTMLDivElement;
+                cue_el.style.left = t2x(Number.parseFloat(cue_el.dataset.time as string)) + 'px';
+            }
+
+        });
 
         shadow.append( style, el);
         window.addEventListener('resize', (ev => { ev.preventDefault(); this.scope_.Resize()}));

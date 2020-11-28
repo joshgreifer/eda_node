@@ -271,6 +271,7 @@ export class Scope extends EventEmitter {
     // the boundary rectangle of the graph area, in pixels
     private gBounds!: GDIPlus.Rect;
 
+    public get GraphBounds() : GDIPlus.Rect { return this.gBounds; }
     // The boundary rectangle of the X and Y axes.
     // They're both fixed width, and always at the left/bottom respectively.
     // But they can be hidden
@@ -432,11 +433,22 @@ export class Scope extends EventEmitter {
                 case Area.None:
                 default:
                     switch (this.GetArea(x, y)) {
-                        case Area.TimeAxis: this.onScreenCanvas.style.cursor = 'ew-resize'; break;
-                        case Area.YAxis: this.onScreenCanvas.style.cursor = 'ns-resize'; break;
-                        case Area.Graph: this.onScreenCanvas.style.cursor = 'zoom-in';break;
-                        case Area.BottomLeft: this.onScreenCanvas.style.cursor = 'pointer';break;
-                        default: this.onScreenCanvas.style.cursor = 'default';break;
+                        case Area.TimeAxis:
+                            this.onScreenCanvas.style.cursor = 'ew-resize';
+                            break;
+                        case Area.YAxis:
+                            this.onScreenCanvas.style.cursor = 'ns-resize';
+                            break;
+                        case Area.Graph:
+                            this.onScreenCanvas.style.cursor = 'zoom-in';
+                            break;
+                        case Area.FollowSignalButton:
+                        case Area.AutoScaleButton:
+                            this.onScreenCanvas.style.cursor = 'pointer';
+                            break;
+                        default:
+                            this.onScreenCanvas.style.cursor = 'default';
+                            break;
 
                     }
 
@@ -447,18 +459,13 @@ export class Scope extends EventEmitter {
 
         this.onScreenCanvas.ontouchend = this.onScreenCanvas.onmouseup = (e: TouchEvent | MouseEvent) => {
             e.preventDefault();
-            if (this.captureArea == Area.BottomLeft) {
-                switch (this.AutoYAxisAdjustBehaviour) {
-                    case AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible:
-                        this.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.None;
-                        break;
-                    case AutoYAxisAdjustBehaviour.None:
-                    default:
-                        this.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
-                        break;
-                }
+            if (this.captureArea == Area.AutoScaleButton)
+                this.AutoYAxisAdjustBehaviour = (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) ? AutoYAxisAdjustBehaviour.None: AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
 
-            }
+            else if (this.captureArea == Area.FollowSignalButton)
+                this.SignalFollowBehaviour = (this.SignalFollowBehaviour === SignalFollowBehaviour.Paginate) ? SignalFollowBehaviour.None: SignalFollowBehaviour.Paginate;
+
+
             this.captureArea = Area.None;
         };
 
@@ -659,8 +666,10 @@ export class Scope extends EventEmitter {
         ctx.font = this.ButtonFont;
         GDIPlus.GCH.FillRectangle(ctx, { Color: this.ButtonBackColor} , this.ButtonsBounds);
         const align: GDIPlus.TextAlign = { H:GDIPlus.TextHorizontalAlign.Center, V:GDIPlus.TextVerticalAlign.Middle};
-        const textColor = (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) ? this.ButtonForeColor : this.ButtonDisabledColor;
-        GDIPlus.GCH.DrawString(ctx,"↕" , textColor, this.ButtonsBounds.x + this.ButtonsBounds.width/2 , this.ButtonsBounds.y + this.ButtonsBounds.height/2, align);
+        const textColorAutoScale = (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) ? this.ButtonForeColor : this.ButtonDisabledColor;
+        const textColorSignalFollow = (this.SignalFollowBehaviour === SignalFollowBehaviour.Paginate) ? this.ButtonForeColor : this.ButtonDisabledColor;
+        GDIPlus.GCH.DrawString(ctx,"↕" , textColorAutoScale, this.ButtonsBounds.x + this.ButtonsBounds.width/4 , this.ButtonsBounds.y + this.ButtonsBounds.height/2, align);
+        GDIPlus.GCH.DrawString(ctx,"→" , textColorSignalFollow, this.ButtonsBounds.x + 3 * this.ButtonsBounds.width/4 , this.ButtonsBounds.y + this.ButtonsBounds.height/2, align);
     }
 
     private RenderTimeAxis(ctx: CanvasRenderingContext2D): void  {
@@ -1297,7 +1306,10 @@ export class Scope extends EventEmitter {
             return Area.TimeAxis;
         if (this.yAxisBounds.Contains(X, Y))
             return Area.YAxis;
-        return Area.BottomLeft;
+        if (this.ButtonsBounds.Contains(X, Y)) {
+            return (X < this.ButtonsBounds.x + this.ButtonsBounds.width / 2) ? Area.AutoScaleButton : Area.FollowSignalButton;
+        }
+        return Area.None;
 
     }
 
@@ -1374,7 +1386,8 @@ enum Area {
     Graph,
     TimeAxis,
     YAxis,
-    BottomLeft,
+    AutoScaleButton,
+    FollowSignalButton,
 
 }
 

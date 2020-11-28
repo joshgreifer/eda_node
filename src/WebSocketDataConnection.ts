@@ -79,12 +79,12 @@ export class WebSocketDataConnection extends DataConnection  {
 
 
         ws.onopen = (ev: Event) => {
-            console.log(ev);
+            // console.log(ev);
             this.startPerformanceMeasurement();
         };
 
         ws.onclose = (ev: CloseEvent) => {
-            console.log(ev);
+            // console.log(ev);
             // try again later
             setTimeout( () => { this.init(bits_per_sample) }, 2000)
         };
@@ -114,7 +114,7 @@ export class WebSocketDataConnection extends DataConnection  {
 
 
         ws.onerror = (ev: Event) => {
-            console.log(ev);
+            console.error(ev);
 
         };
 

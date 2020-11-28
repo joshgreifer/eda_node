@@ -37,13 +37,38 @@
 
 export class ConsoleElement extends HTMLElement {
 
-    public log: (text:string, className: string, is_continuation?: boolean, replaceClassName?: string) => void;
+    public message: (text:string, className: string, is_continuation?: boolean, replaceClassName?: string) => void;
+    public log: (text: string) => void;
     public warn: (text: string) => void;
     public info: (text: string) => void;
     public error: (text: string) => void;
 
+    private old_console_log_func = window.console.log;
+    private old_console_error_func = window.console.error;
+    private old_console_warn_func = window.console.warn;
+    private old_console_info_func = window.console.info;
+
+    private static make_msg(...args: any) : string {
+        let msg = '';
+        if (args && args.length) {
+            for (const arg of args) {
+                if (typeof (arg) === 'object')
+                    msg += JSON.stringify(arg, null, 2) + ' ';
+                else
+                    msg += arg + ' ';
+
+            }
+        }
+        return msg;
+    }
+
+    private developer_mode: boolean = false;
+    public get DeveloperMode(): boolean { return this.developer_mode; }
+    public set DeveloperMode( mode) { this.developer_mode = mode; }
+
     constructor() {
         super();
+
         const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'
         const style = document.createElement('style');
         const container_el = document.createElement('div');
@@ -91,8 +116,15 @@ export class ConsoleElement extends HTMLElement {
         .console-output .warn {
             color: #ff8400;
         }
+        .console-output .recognized {
+            color: #90c8ff;
+        }
+        .console-output .recognizing {
+            font-style: italic;
+            color: #46688d;
+        }
 `;
-        const log = (text:string, className: string, is_continuation: boolean = false, replaceClassName = className) => {
+        const message = (text:string, className: string, is_continuation: boolean = false, replaceClassName = className) => {
             let line_el: HTMLDivElement;
             const last_child_el = el.lastChild;
             if (!is_continuation || last_child_el === null || (<HTMLDivElement>last_child_el).className !== replaceClassName) {
@@ -112,10 +144,33 @@ export class ConsoleElement extends HTMLElement {
         }
 
 
-        const warn = (text:string) => { log(text, 'warn', false)}
-        const info = (text:string) => { log(text, 'info', false)}
-        const error = (text:string) => { log(text, 'error', false)}
+        const log = (...args: any) => { if (this.developer_mode) message(ConsoleElement.make_msg(...args), 'info', false); this.old_console_log_func.apply(console, args);}
+        const warn = (...args: any) => { if (this.developer_mode)  message(ConsoleElement.make_msg(...args), 'warn', false); this.old_console_warn_func.apply(console, args);}
+        const info = (...args: any) => { if (this.developer_mode)  message(ConsoleElement.make_msg(...args), 'info', false); this.old_console_info_func.apply(console, args);}
+        const error = (...args: any) => { if (this.developer_mode) message(ConsoleElement.make_msg(...args), 'error', false); this.old_console_error_func.apply(console, args);}
 
+        window.console.log = log;
+        window.console.info = info;
+        window.console.warn = warn;
+        window.console.error = error;
+
+        window.onerror = (message, file, line, col, err) => {
+            if (err)
+                error(err.stack);
+            return false;
+        };
+
+        window.addEventListener('unhandledrejection',  (e: PromiseRejectionEvent) => {
+            error("Promise Rejection: " + e.reason);
+            return false;
+        });
+
+        window.addEventListener("error", (e) => {
+            error(e.error.stack);
+            return false;
+        });
+
+        this.message = message;
         this.log = log;
         this.warn = warn;
         this.info = info;

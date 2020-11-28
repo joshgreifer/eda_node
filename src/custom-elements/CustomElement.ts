@@ -34,6 +34,8 @@
  */
 export class CustomElement extends HTMLElement {
 
+
+
     constructor() {
         super();
         const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'

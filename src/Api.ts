@@ -13,7 +13,7 @@ export async function open_hid_device(vid: number, pid:number): Promise<any> {
     return await api_response.json();
 }
 
-export async function get_server_status(): Promise<{ 'status': string }> {
+export async function get_server_status(): Promise<{ 'message': string, 'websocket': string, 'device': any }> {
     const api_response = await fetch(`/status`, {
         method: 'get',
         headers: {
