@@ -42,8 +42,6 @@ import {WebSocketDataConnectionElement} from "./custom-elements/WebSocketDataCon
 import {AutoYAxisAdjustBehaviour, DownSampleAlgorithm, RenderStyle, Scope, SignalFollowBehaviour} from "./Scope";
 import {get_server_status, open_hid_device} from "./Api";
 import {SpeechService} from "./SpeechService";
-import {CueList} from "./CueList";
-
 
 
 AddAlgorithms(Array.prototype);
@@ -71,6 +69,10 @@ function switchToPage(page_id: string) {
         else
             page.classList.add('hidden');
     }
+    const page_buttons = document.querySelectorAll('.page-switcher');
+    for (const page_button of page_buttons)
+        (<HTMLButtonElement>page_button).disabled = (page_button.getAttribute('page') === page_id);
+
 }
 switchToPage('page-1');
 
@@ -114,12 +116,41 @@ connectButton.addEventListener('click', async () => {
     const password = passwordElement.value;
     const speechService = new SpeechService(password, true, false);
     await speechService.StartContinuousRecognition();
-    speechService.on('recognized', (text: string)=>{ c.message(text, 'recognized', true, 'recognizing')});
-    speechService.on('recognizing', (text: string)=>{ c.message(text, 'recognizing', true)});
+    speechService.on('recognized', (text: string)=> {
+        const timeStamp: number = scope.Connection ? scope.Connection.CurrentTimeSecs : 0;
+        c.add({ text: text, className: 'recognized', replaceClassName: 'recognizing', isContinuation: true, timeStamp: timeStamp});
+    });
+    speechService.on('recognizing', (text: string)=>{ c.add({ text: text, className: 'recognizing', isContinuation: true})});
     const response = await open_hid_device(1240, 61281);
     console.info(JSON.stringify(response, null, 1));
 
     scopeEl.AddCue('test 5s', 5.0);
+    c.add({ text: 'test 5s', className: 'cue', timeStamp: 5.0});
+
+    c.Events.on('console-click', (el: HTMLDivElement) => {
+        if (['cue', 'recognized'].includes(el.className)) {
+            scope.SignalFollowBehaviour = SignalFollowBehaviour.None;
+            scope.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
+        }
+    });
+
+    window.addEventListener('keyup', (evt: KeyboardEvent) => {
+        const code = evt.code;
+        if (scope.Connection) {
+            let label = '';
+            if (code.startsWith('Key'))
+                label = evt.code[3];
+            else if (code.startsWith('Digit'))
+                label = code[5];
+            else if (code.startsWith('Numpad'))
+                label = code[6];
+
+            if (label !== '') {
+                scopeEl.AddCue(label, scope.Connection.CurrentTimeSecs);
+                c.add({text: label, className: 'cue', timeStamp: scope.Connection.CurrentTimeSecs});
+            }
+        }
+    })
 
 });
 

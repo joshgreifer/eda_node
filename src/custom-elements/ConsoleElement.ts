@@ -33,22 +33,37 @@
  *
  *
  */
+import EventEmitter from "eventemitter3";
 
+export interface ConsoleMessage {
+    text: string;
+    className: string;
+    timeStamp?: number;
+    isContinuation?: boolean;
+    replaceClassName?: string;
+}
 
 export class ConsoleElement extends HTMLElement {
 
-    public message: (text:string, className: string, is_continuation?: boolean, replaceClassName?: string) => void;
+    public add: (item: ConsoleMessage) => void;
     public log: (text: string) => void;
     public warn: (text: string) => void;
     public info: (text: string) => void;
     public error: (text: string) => void;
+    public clear: () => void;
 
     private old_console_log_func = window.console.log;
     private old_console_error_func = window.console.error;
     private old_console_warn_func = window.console.warn;
     private old_console_info_func = window.console.info;
 
-    private static make_msg(...args: any) : string {
+    // EventEmitter delegates
+
+    public Events: EventEmitter;
+
+
+    private static make_msg(className: string, ...args: any) : ConsoleMessage {
+
         let msg = '';
         if (args && args.length) {
             for (const arg of args) {
@@ -59,7 +74,10 @@ export class ConsoleElement extends HTMLElement {
 
             }
         }
-        return msg;
+        return {
+            text: msg.trimEnd(),
+            className: className
+        }
     }
 
     private developer_mode: boolean = false;
@@ -68,6 +86,9 @@ export class ConsoleElement extends HTMLElement {
 
     constructor() {
         super();
+
+        const self = this;
+        this.Events = new EventEmitter();
 
         const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'
         const style = document.createElement('style');
@@ -105,11 +126,19 @@ export class ConsoleElement extends HTMLElement {
             color: #BCD631;
             font-family: 'Lucida Console', Monaco, monospace;
             scroll-snap-align: end;
-
         }
+
         .console-output .error {
             color: #d60619;
         }
+        .console-output .cue {
+            color:  rgb(130,229,82);
+        }
+        .console-output .cue:hover {
+            background-color: #646464;
+            cursor: pointer;
+        }
+                
         .console-output .info {
             color: #76fc57;
         }
@@ -124,7 +153,10 @@ export class ConsoleElement extends HTMLElement {
             color: #46688d;
         }
 `;
-        const message = (text:string, className: string, is_continuation: boolean = false, replaceClassName = className) => {
+        const add = (item: ConsoleMessage) => {
+            const is_continuation: boolean = !!item.isContinuation;
+            const replaceClassName: string = item.replaceClassName || item.className;
+
             let line_el: HTMLDivElement;
             const last_child_el = el.lastChild;
             if (!is_continuation || last_child_el === null || (<HTMLDivElement>last_child_el).className !== replaceClassName) {
@@ -136,18 +168,23 @@ export class ConsoleElement extends HTMLElement {
 
 
             }
-            line_el.classList.add(className);
-            let textNode = document.createTextNode(text);
+            line_el.classList.add(item.className);
+            // Timestamp the event if none provided
+            line_el.setAttribute('time-stamp', (item.timeStamp || (Date.now() / 1000)).toString());
+
+            let textNode = document.createTextNode(item.text);
             line_el.appendChild(textNode);
-            if (line_el !== last_child_el)
+            if (line_el !== last_child_el) {
                 el.appendChild(line_el);
+                line_el.addEventListener('click', () => { self.Events.emit('console-click', line_el)})
+            }
         }
 
-
-        const log = (...args: any) => { if (this.developer_mode) message(ConsoleElement.make_msg(...args), 'info', false); this.old_console_log_func.apply(console, args);}
-        const warn = (...args: any) => { if (this.developer_mode)  message(ConsoleElement.make_msg(...args), 'warn', false); this.old_console_warn_func.apply(console, args);}
-        const info = (...args: any) => { if (this.developer_mode)  message(ConsoleElement.make_msg(...args), 'info', false); this.old_console_info_func.apply(console, args);}
-        const error = (...args: any) => { if (this.developer_mode) message(ConsoleElement.make_msg(...args), 'error', false); this.old_console_error_func.apply(console, args);}
+        const clear = () => { while (container_el.firstChild) container_el.removeChild(container_el.firstChild); }
+        const log = (...args: any) => { if (this.developer_mode) add(ConsoleElement.make_msg('info', ...args)); this.old_console_log_func.apply(console, args);}
+        const warn = (...args: any) => { if (this.developer_mode) add(ConsoleElement.make_msg('warn', ...args)); this.old_console_warn_func.apply(console, args);}
+        const info = (...args: any) => { if (this.developer_mode) add(ConsoleElement.make_msg('info', ...args)); this.old_console_info_func.apply(console, args);}
+        const error = (...args: any) => { if (this.developer_mode) add(ConsoleElement.make_msg('error', ...args)); this.old_console_error_func.apply(console, args);}
 
         window.console.log = log;
         window.console.info = info;
@@ -170,11 +207,14 @@ export class ConsoleElement extends HTMLElement {
             return false;
         });
 
-        this.message = message;
+        this.add = add;
         this.log = log;
         this.warn = warn;
         this.info = info;
         this.error = error;
+
+        this.clear = clear;
+
 
         shadow.append( style, container_el);
 

@@ -359,11 +359,12 @@ export class Scope extends EventEmitter {
         this.onScreenCanvas = this.canvases[0];
 
         // Make sure container is empty
-        while (container.firstChild) {
+        while (container.firstChild)
             container.removeChild(container.firstChild);
-        }
-        container.appendChild(this.onScreenCanvas);
+        container.style.lineHeight = "0px";
 
+        container.appendChild(this.onScreenCanvas);
+        this.onScreenCanvas.style.position = 'relative';
         this.onScreenContext = this.onScreenCanvas.getContext('2d') as CanvasRenderingContext2D;
 //        this.onScreenContext.imageSmoothingEnabled = false;
 
@@ -468,8 +469,9 @@ export class Scope extends EventEmitter {
 
             this.captureArea = Area.None;
         };
-
-        this.Resize();
+        const W = (this.onScreenCanvas.parentElement as HTMLDivElement).clientWidth;
+        const H = (this.onScreenCanvas.parentElement as HTMLDivElement).clientHeight;
+        this.Resize(W, H);
         // start drawing
 
 
@@ -498,7 +500,7 @@ export class Scope extends EventEmitter {
             slave.dBounds.x = value;
 
         this.timeAxis_Recalc();
-        this.emit('TIME-AXIS', { left: value, width: this.dBounds.width });
+        this.emit('TimeAxisChanged', { left: value, width: this.dBounds.width });
     }
 
     public get DataY() {
@@ -523,7 +525,7 @@ export class Scope extends EventEmitter {
         for (let slave of this.slaves)
             slave.dBounds.width = value;
         this.timeAxis_Recalc();
-        this.emit('TIME-AXIS', { left: this.dBounds.x, width: value });
+        this.emit('TimeAxisChanged', { left: this.dBounds.x, width: value });
     }
 
     public get DataHeight() {
@@ -541,12 +543,11 @@ export class Scope extends EventEmitter {
             this.conn_.Reset();
     }
 
-    public Resize(): void {
+    public Resize(W: number, H: number): void {
         const  Y_AXIS_WIDTH = 48;
         const  X_AXIS_HEIGHT = 32;
 
-        const W = (this.onScreenCanvas.parentElement as HTMLDivElement).clientWidth;
-        const H = (this.onScreenCanvas.parentElement as HTMLDivElement).clientHeight;
+
         // const r = this.onScreenCanvas.parentElement!.getBoundingClientRect();
         // const W = r.width;
         // const H = r.height;

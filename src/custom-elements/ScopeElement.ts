@@ -44,31 +44,55 @@ export class ScopeElement extends HTMLElement {
         super();
         const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'
         const el = <HTMLDivElement>document.createElement('div');
+        const scope_el = <HTMLDivElement>document.createElement('div');
+        const labels_el = <HTMLDivElement>document.createElement('div');
+        el.appendChild(scope_el);
+        el.appendChild(labels_el);
         const style = document.createElement('style');
         // noinspection CssInvalidPropertyValue
-        el.className = 'private-style1';
+        el.className = 'container';
+        scope_el.className = 'plot';
+        labels_el.className = 'labels';
         // noinspection CssInvalidFunction,CssInvalidPropertyValue
         style.textContent = `
-        .cue {
-            position: relative;
-            top: -10%;
-            width: 50px;
-            background-color: rgba(255,0,128, 0.5);
+
+        .container {
+            width: 70vw;
+            height: 80vh;
+            display: grid;
+            grid-template-rows: 1fr 24px;
+            grid-template-columns: 1fr;
+            grid-template-areas:
+                "plot"
+                "labels"
         }
         
-        .private-style1 {
-        height: 100%;
-        width: 100%;
-        /*padding: 0;*/
-        /*margin :0;*/
-        /*    top: 0;*/
-        /*    bottom : 0;*/
-        /*    left: 0;*/
-        /*    right: 0;*/
-            
+        .labels {
+            grid-area: labels;
+            position: relative;
         }
+        
+
+        .cue {
+            font-family: monospace;
+            font-size: 12px;
+            border-radius: 0 3px 3px 0;
+            border-left: solid red;
+            position: absolute;
+            display: inline;
+            top: 0px;
+            padding: 5px;
+            /*width: 100px;*/
+            color: white;
+            background-color: rgb(40,90,16);
+        }
+        
+        .plot {
+            grid-area: plot;
+         }
+            
 `;
-        const scope = new Scope(el);
+        const scope = new Scope(scope_el);
         this.scope_ = scope;
 
         const t2x = (t: number) => {
@@ -86,12 +110,18 @@ export class ScopeElement extends HTMLElement {
                 cue_el.classList.add('cue');
                 cue_el.innerHTML = cue;
                 cue_el.style.left = t2x(Number.parseFloat(cue_el.dataset.time)) + 'px';
-                el.appendChild(cue_el);
+                cue_el.addEventListener('click', () => {
+                    const label = window.prompt("Enter new cue label:", cue);
+                    if (label)
+                        cue_el.innerHTML = cue = label;
+
+                })
+                labels_el.appendChild(cue_el);
             }
 
         }
         // Update the position of the cues when time axis changes
-        scope.on('TIME-AXIS', () => {
+        scope.on('TimeAxisChanged', () => {
             const cue_els = el.querySelectorAll('.cue');
             for (const el of cue_els) {
                 const cue_el = el as HTMLDivElement;
@@ -101,8 +131,8 @@ export class ScopeElement extends HTMLElement {
         });
 
         shadow.append( style, el);
-        window.addEventListener('resize', (ev => { ev.preventDefault(); this.scope_.Resize()}));
-        this.scope_.Resize();
+        window.addEventListener('resize', (ev => { this.scope_.Resize(el.clientWidth, el.clientHeight-24)}));
+        this.scope_.Resize(el.clientWidth, el.clientHeight-24);
 
     }
 
