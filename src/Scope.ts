@@ -129,7 +129,17 @@ const createImageBitmapPolyFill = (canvas: HTMLCanvasElement | undefined = undef
 
 createImageBitmapPolyFill();
 
-
+export enum MarkerStyle {
+    Filled,
+    Hollow
+}
+export class Marker {
+    style: MarkerStyle = MarkerStyle.Filled;
+    radius: number = 4;
+    color: string = "#fff";
+    time!: number;
+    value!: number
+}
 
 export enum RenderStyle {
     None,
@@ -146,7 +156,6 @@ export enum DownSampleAlgorithm {
     MinMax,
 }
 export enum SignalFollowBehaviour {
-    None,
     Scroll,
     Paginate,
     Fit,
@@ -170,6 +179,7 @@ The Scope object depends on a
  */
 export class Scope extends EventEmitter {
 
+    public Markers: Marker[] = [];
 
     private onScreenCanvas!: HTMLCanvasElement;
 
@@ -218,7 +228,7 @@ export class Scope extends EventEmitter {
     public GridMinorTextColor = '#88c5ff';
     public GridMajorTextColor = '#1c95ff';
 
-    public ButtonBackColor = this.AxesBackColor;
+    public ButtonBackColor = 'rgba(41,60, 74, 0.5)';
     public ButtonForeColor = '#5ff800';
     public ButtonDisabledColor = '#6d7a65';
     // Y values are multiplied by this
@@ -281,6 +291,26 @@ export class Scope extends EventEmitter {
     public YAxisVisible = true;
     private ButtonsBounds!: GDIPlus.Rect;
 
+    private follow_signal_: boolean = true;
+
+    public get FollowSignal(): boolean {
+        return this.follow_signal_;
+    }
+
+    public set FollowSignal(follow_signal: boolean) {
+
+        if (this.master != null) {
+            this.master.FollowSignal = follow_signal;
+            return;
+        }
+
+        this.follow_signal_ = follow_signal;
+        for (let slave of this.slaves)
+            slave.follow_signal_ = follow_signal;
+
+        this.follow_signal_ = follow_signal;
+    }
+
     public SignalFollowBehaviour: SignalFollowBehaviour = SignalFollowBehaviour.Paginate;
     public AutoYAxisAdjustBehaviour : AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
 
@@ -309,17 +339,15 @@ export class Scope extends EventEmitter {
         for (const slave of this.slaves)
             slave.dataTime = this.dataTime;
 
-        switch (this.SignalFollowBehaviour) {
-            case SignalFollowBehaviour.None:
-            default:
-                break;
-            case SignalFollowBehaviour.Scroll:
-                this.DataX = this.dataTime - this.dBounds.width;
-                break;
-            case SignalFollowBehaviour.Paginate:
-                if (this.dataTime > this.dBounds.right)
-                    this.DataX = this.dBounds.right;
-        }
+        if (this.FollowSignal)
+            switch (this.SignalFollowBehaviour) {
+                case SignalFollowBehaviour.Scroll:
+                    this.DataX = this.dataTime - this.dBounds.width;
+                    break;
+                case SignalFollowBehaviour.Paginate:
+                    if (this.dataTime > this.dBounds.right)
+                        this.DataX = this.dBounds.right;
+            }
 
     }
     public get Connection(): iDataConnection | undefined { return this.conn_; }
@@ -342,6 +370,13 @@ export class Scope extends EventEmitter {
     }
     private conn_?: iDataConnection;
 
+    private timeToString(t: number): string {
+        t *= 1000; // ms
+        if ((t % 1000) === 0)
+            return  new Date(t).toISOString().replace(/^.*T00:/, '').replace(/\..*$/, '');
+        else
+            return  '.' + new Date(t).toISOString().replace(/^.*\./, '').replace(/Z$/, '');
+    }
 
     constructor(container: HTMLElement, private gch = GDIPlus.GCH) {
         super();
@@ -464,7 +499,7 @@ export class Scope extends EventEmitter {
                 this.AutoYAxisAdjustBehaviour = (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) ? AutoYAxisAdjustBehaviour.None: AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
 
             else if (this.captureArea == Area.FollowSignalButton)
-                this.SignalFollowBehaviour = (this.SignalFollowBehaviour === SignalFollowBehaviour.Paginate) ? SignalFollowBehaviour.None: SignalFollowBehaviour.Paginate;
+                this.FollowSignal = !this.FollowSignal;
 
 
             this.captureArea = Area.None;
@@ -500,7 +535,7 @@ export class Scope extends EventEmitter {
             slave.dBounds.x = value;
 
         this.timeAxis_Recalc();
-        this.emit('TimeAxisChanged', { left: value, width: this.dBounds.width });
+        this.emit('TimeAxisChanged', { x: value, width: this.dBounds.width });
     }
 
     public get DataY() {
@@ -509,6 +544,8 @@ export class Scope extends EventEmitter {
 
     public set DataY(value: number) {
         this.dBounds.y = value;
+        this.emit('YAxisChanged', { y: value, height: this.dBounds.height });
+
     }
 
     public get DataWidth() {
@@ -525,7 +562,7 @@ export class Scope extends EventEmitter {
         for (let slave of this.slaves)
             slave.dBounds.width = value;
         this.timeAxis_Recalc();
-        this.emit('TimeAxisChanged', { left: this.dBounds.x, width: value });
+        this.emit('TimeAxisChanged', { x: this.dBounds.x, width: value });
     }
 
     public get DataHeight() {
@@ -534,6 +571,7 @@ export class Scope extends EventEmitter {
 
     public set DataHeight(value: number) {
         this.dBounds.height = value;
+        this.emit('YAxisChanged', { y: this.dBounds.y, height: value });
         this.yAxis_Recalc();
     }
 
@@ -561,7 +599,7 @@ export class Scope extends EventEmitter {
 
         this.yAxisBounds = new GDIPlus.Rect(0, 0, y_axis_width, H - x_axis_height);
         this.timeAxisBounds = new GDIPlus.Rect(y_axis_width, H - x_axis_height, W - y_axis_width, x_axis_height);
-        this.ButtonsBounds = new GDIPlus.Rect(0, H - x_axis_height, y_axis_width, x_axis_height);
+        this.ButtonsBounds = new GDIPlus.Rect(2+Y_AXIS_WIDTH, H - x_axis_height - X_AXIS_HEIGHT - 2, Y_AXIS_WIDTH, X_AXIS_HEIGHT);
 
         this.gBounds = new GDIPlus.Rect(y_axis_width, 0, W-y_axis_width, H - x_axis_height);
 
@@ -591,7 +629,6 @@ export class Scope extends EventEmitter {
                 this.RenderTimeAxis(ctx);
             this.RenderYAxis(ctx);
 
-            this.RenderButtons(ctx);
 
             // Let's assume we need to render everything
             let dirtyRect: GDIPlus.Rect = this.dBounds.Clone();
@@ -613,11 +650,11 @@ export class Scope extends EventEmitter {
                 // if (false) {
                 if (this.dBoundsOld.Equals(this.dBounds)) {
                     this.BlitGraph(ctx_off_prev, ctx_off_curr);
-                    await this.RenderGraph(ctx_off_curr, this.dataTimeOld - new_data_overlap_pixels, dataTime - this.dataTimeOld + new_data_overlap_pixels);
+                    await this.RenderPlot(ctx_off_curr, this.dataTimeOld - new_data_overlap_pixels, dataTime - this.dataTimeOld + new_data_overlap_pixels);
                 } else {
                     // this.dBoundsOld.AssignFrom(this.dBounds);
                     this.RenderGraphBackground(ctx_off_curr);
-                    await this.RenderGraph(ctx_off_curr, dirtyRect.x, dirtyRect.width);
+                    await this.RenderPlot(ctx_off_curr, dirtyRect.x, dirtyRect.width);
                 }
                 // Ok, we've rendered current data bounds to offscreen, blit to main context and update offscreen data rect
                 this.BlitGraph(ctx_off_curr, ctx);
@@ -626,6 +663,10 @@ export class Scope extends EventEmitter {
 
                 // grid
                 this.RenderGraphGrid(ctx);
+
+                // buttons
+                this.RenderButtons(ctx);
+
 
 //                this.BlitAll(ctx, ctx_on);
 
@@ -668,7 +709,7 @@ export class Scope extends EventEmitter {
         GDIPlus.GCH.FillRectangle(ctx, { Color: this.ButtonBackColor} , this.ButtonsBounds);
         const align: GDIPlus.TextAlign = { H:GDIPlus.TextHorizontalAlign.Center, V:GDIPlus.TextVerticalAlign.Middle};
         const textColorAutoScale = (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) ? this.ButtonForeColor : this.ButtonDisabledColor;
-        const textColorSignalFollow = (this.SignalFollowBehaviour === SignalFollowBehaviour.Paginate) ? this.ButtonForeColor : this.ButtonDisabledColor;
+        const textColorSignalFollow = this.FollowSignal ? this.ButtonForeColor : this.ButtonDisabledColor;
         GDIPlus.GCH.DrawString(ctx,"↕" , textColorAutoScale, this.ButtonsBounds.x + this.ButtonsBounds.width/4 , this.ButtonsBounds.y + this.ButtonsBounds.height/2, align);
         GDIPlus.GCH.DrawString(ctx,"→" , textColorSignalFollow, this.ButtonsBounds.x + 3 * this.ButtonsBounds.width/4 , this.ButtonsBounds.y + this.ButtonsBounds.height/2, align);
     }
@@ -687,14 +728,14 @@ export class Scope extends EventEmitter {
         // find first grid minor point
         const firstGridMinorX = this.gridMinorX * Math.floor(this.dBounds.x / this.gridMinorX);
 
-        const add_numbers_to_grid_minor: boolean = (25 < this.duration2pixels(this.gridMinorX));
+        const add_numbers_to_grid_minor: boolean = (50 < this.duration2pixels(this.gridMinorX));
 
         for (let x = firstGridMinorX; x < this.dBounds.x + this.dBounds.width; x += this.gridMinorX) {
             let gx = this.time2pixels(x);
             GDIPlus.GCH.DrawLine(ctx, this.penGridMinor, gx, 0, gx, 3);
             if (add_numbers_to_grid_minor) {
                 const align: GDIPlus.TextAlign = { H:GDIPlus.TextHorizontalAlign.Center, V:GDIPlus.TextVerticalAlign.Top};
-                GDIPlus.GCH.DrawString(ctx, (start_offset_time + x).toFixed(2), this.GridMajorTextColor, gx+1, 4, align);
+                GDIPlus.GCH.DrawString(ctx,  this.timeToString(start_offset_time + x), this.GridMajorTextColor, gx+1, 4, align);
             }
 
         }
@@ -706,7 +747,7 @@ export class Scope extends EventEmitter {
             let gx = this.time2pixels(x);
             GDIPlus.GCH.DrawLine(ctx, this.penGridMajor, gx, 0, gx, 4);
             const align: GDIPlus.TextAlign = { H:GDIPlus.TextHorizontalAlign.Center, V:GDIPlus.TextVerticalAlign.Top};
-            GDIPlus.GCH.DrawString(ctx, (start_offset_time + x).toFixed(1), this.GridMajorTextColor, gx+1, 4, align);
+            GDIPlus.GCH.DrawString(ctx,  this.timeToString(start_offset_time + x), this.GridMajorTextColor, gx+1, 4, align);
 
 
         }
@@ -765,10 +806,27 @@ export class Scope extends EventEmitter {
 
     }
 
-    private async RenderGraph(ctx: CanvasRenderingContext2D, start_time: number, duration: number) {
+    private RenderMarkers(ctx: CanvasRenderingContext2D) {
+        // data
+        // flip data values horizontally, zero at bottom
+        const time_and_sample_values_rect: GDIPlus.Rect = new GDIPlus.Rect(
+            this.dBounds.x,
+            this.SampleUnitMultiplier * (this.dBounds.y + this.dBounds.height),
+            this.dBounds.width,
+            -this.SampleUnitMultiplier * this.dBounds.height);
+
+
+        for (let marker of this.Markers) {
+            if (marker.time >= this.DataX && marker.time < this.DataX + this.DataWidth && marker.value >= this.DataY && marker.value < this.DataY + this.DataHeight)
+                GDIPlus.GCH.FillCircle(ctx, marker.color, this.d2gX(marker.time) + this.gBounds.x, this.d2gY(marker.value) + + this.gBounds.y, marker.radius);
+        }
+
+    }
+
+    private async RenderPlot(ctx: CanvasRenderingContext2D, start_time: number, duration: number) {
 
         if (this.conn_ && this.conn_.HasData)  {
-            const YExtentChanged = await this.RenderData(ctx, start_time, duration);
+            const YExtentChanged = await this.RenderPlotData(ctx, start_time, duration);
             if (YExtentChanged) this.AdjustYAxis();
 
         } else { // no data
@@ -776,6 +834,7 @@ export class Scope extends EventEmitter {
             GDIPlus.GCH.DrawString(ctx, "(No signal)", this.ForeColor, this.gBounds.x + this.gBounds.width / 2, this.gBounds.y + this.gBounds.height / 2, { H: GDIPlus.TextHorizontalAlign.Center, V: TextVerticalAlign.Middle });
 
         }
+        this.RenderMarkers(ctx);
     }
 
     /*
@@ -790,7 +849,7 @@ export class Scope extends EventEmitter {
     *
     * return true if graph got clipped; it always sets maxY and minY to the y limits of the displayed signal
     */
-    async RenderData(ctx: CanvasRenderingContext2D, start_time: number, duration: number): Promise<boolean> {
+    async RenderPlotData(ctx: CanvasRenderingContext2D, start_time: number, duration: number): Promise<boolean> {
 
         //
         // data
@@ -833,6 +892,9 @@ export class Scope extends EventEmitter {
         // Set maxY and minY for autoscaling/autotrack
         let nMaxY = -Number.MAX_VALUE;
         let nMinY = Number.MAX_VALUE;
+
+
+
         // find the index into the sample buffer of the leftmost visible sample
         const first_idx = this.conn_ ? this.conn_.TimeToIndex(start_time) : 0;
         let num_frames_to_display = Math.floor(duration * this.fs_);
@@ -1301,16 +1363,16 @@ export class Scope extends EventEmitter {
 
     GetArea(X:number, Y:number): Area {
 
+        // Note, this test must be done first, because buttons bounds now floats on top of plot area
+        if (this.ButtonsBounds.Contains(X, Y))
+            return (X < this.ButtonsBounds.x + this.ButtonsBounds.width / 2) ? Area.AutoScaleButton : Area.FollowSignalButton;
         if (this.gBounds.Contains(X,Y))
             return Area.Graph;
         if (this.timeAxisBounds.Contains(X, Y))
             return Area.TimeAxis;
         if (this.yAxisBounds.Contains(X, Y))
             return Area.YAxis;
-        if (this.ButtonsBounds.Contains(X, Y)) {
-            return (X < this.ButtonsBounds.x + this.ButtonsBounds.width / 2) ? Area.AutoScaleButton : Area.FollowSignalButton;
-        }
-        return Area.None;
+          return Area.None;
 
     }
 

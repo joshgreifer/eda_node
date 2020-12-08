@@ -35,9 +35,13 @@
 import NDArray from 'ndarray';
 import EventEmitter from "eventemitter3";
 
-declare type BufferData = Int8Array | Int16Array | Int32Array |
+export declare type BufferData = Int8Array | Int16Array | Int32Array |
     Uint8Array | Uint16Array | Uint32Array |
     Float32Array | Float64Array | Uint8ClampedArray;
+
+export declare type BufferDataConstructor = Int8ArrayConstructor | Int16ArrayConstructor | Int32ArrayConstructor |
+    Uint8ArrayConstructor | Uint16ArrayConstructor | Uint32ArrayConstructor |
+    Float32ArrayConstructor | Float64ArrayConstructor | Uint8ClampedArrayConstructor;
 
 class DataBuffer {
     private readonly NUM_CHANNELS: number;
@@ -103,28 +107,11 @@ class DataBuffer {
 
     reset(): void { this.nBuffersRead_ =  this.idx_ = this.sampleCount_ = 0; }
 
-    constructor(sz: number, num_channels: number, bits_per_sample: number, array_constructor: any = undefined) {
+    constructor(sz: number, num_channels: number, /* bits_per_sample: number, */ array_constructor: BufferDataConstructor) {
         this.NUM_CHANNELS = num_channels;
         this.SZ = sz;
-        if (array_constructor !== undefined) {
             this.buf_ = new array_constructor(2* sz * num_channels);
-        } else {
-            switch (bits_per_sample) {
-                case 8:
-                    this.buf_ = new Uint8Array(2 * sz * num_channels);
-                    break;
-                case 16:
-                    this.buf_ = new Int16Array(2 * sz * num_channels);
-                    break;
-                case 32:
-                    this.buf_ = new Float32Array(2 * sz * num_channels);
-                    break;
-                default:
-                case 64:
-                    this.buf_ = new Float64Array(2 * sz * num_channels);
-                    break;
-            }
-        }
+
         this.reset();
     }
 }
@@ -151,14 +138,14 @@ export class DataConnection extends EventEmitter implements iDataConnection {
 
     protected static readonly BUFFER_SIZE_SECONDS = 3600;
 
-    constructor(public readonly Fs: number, public readonly NumChannels: number, protected bits_per_sample: number = 16, array_constructor = Int16Array) {
+    constructor(public readonly Fs: number, public readonly NumChannels: number, array_constructor: BufferDataConstructor) {
         super();
-        this.buf_ = new DataBuffer(DataConnection.BUFFER_SIZE_SECONDS * this.Fs, this.NumChannels, bits_per_sample, array_constructor);
+        this.buf_ = new DataBuffer(DataConnection.BUFFER_SIZE_SECONDS * this.Fs, this.NumChannels, array_constructor);
     }
 
     AddData(data: BufferData): void {
         this.buf_.put(data);
-        this.emit('data');
+        this.emit('data', data);
     }
 
     get HasData(): boolean { return this.buf_.RowCount > 0; }
@@ -170,7 +157,7 @@ export class DataConnection extends EventEmitter implements iDataConnection {
 
     Reset() {
         this.buf_.reset();
-        this.emit('data');
+        this.emit('data', null);
         this.startPerformanceMeasurement();
     }
 

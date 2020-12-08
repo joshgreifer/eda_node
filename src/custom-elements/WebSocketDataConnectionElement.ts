@@ -30,6 +30,7 @@
  */
 import * as GDIPlus from "../GDIPlus";
 import {iConnectionStatusListener, WebSocketDataConnection} from "../WebSocketDataConnection";
+import {BufferData, BufferDataConstructor} from "../DataConnection";
 
 
 export class WebSocketDataConnectionElement extends HTMLElement implements iConnectionStatusListener {
@@ -79,7 +80,17 @@ export class WebSocketDataConnectionElement extends HTMLElement implements iConn
         const bits_per_sample: number  = this.hasAttribute('bits') ? Number.parseInt(this.getAttribute('bits') as string): 16;
         const sample_rate: number  = this.hasAttribute('sample-rate') ? Number.parseInt(this.getAttribute('sample-rate') as string): 1;
 
-        this.conn_ = new WebSocketDataConnection(sample_rate, num_channels, bits_per_sample)
+        let array_constructor: BufferDataConstructor = Int16Array;
+        switch (bits_per_sample) {
+            case 16: array_constructor = Int16Array; break;
+            case 32: array_constructor = Float32Array; break;
+            case 8: array_constructor = Uint8Array; break;
+            case 64: array_constructor = Float64Array; break;
+            default:
+                throw "Unknown bits per sample";
+
+        }
+        this.conn_ = new WebSocketDataConnection(sample_rate, num_channels, array_constructor)
 
         if (this.hasAttribute('url')) {
             this.conn_.Url = this.getAttribute('url') as string;

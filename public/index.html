@@ -59,23 +59,22 @@
         <button id="connect-button" disabled >Connect to EDA</button>
         Speech Recognizer Password: <input id="password-input" type="password">
         <button class="page-switcher" page="page-1">EDA Plot</button>
-        <button class="page-switcher" page="page-2">Page 2</button>
-        <button class="page-switcher" page="page-3">Page 3</button>
-
-
+        <button class="page-switcher" page="page-2">Options</button>
+        <button class="page-switcher" page="page-3">Face Detection</button>
     </div>
     <div class="pages">
         <div class="page" id="page-1">
-
-            <scope-element></scope-element>
+            <scope-element height="240px" id="scl"></scope-element>
+            <scope-element  height="60vh" id="eda" labels></scope-element>
           </div>
         <div class="page" id="page-2">
+
             <custom-element value="Hello, world!">
 
             </custom-element>
          </div>
         <div class="page" id="page-3">
-<!--            <facedetect-element></facedetect-element>-->
+            <facedetect-element enabled="false"></facedetect-element>
         </div>
     </div>
     <console-element></console-element>

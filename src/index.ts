@@ -42,6 +42,9 @@ import {WebSocketDataConnectionElement} from "./custom-elements/WebSocketDataCon
 import {AutoYAxisAdjustBehaviour, DownSampleAlgorithm, RenderStyle, Scope, SignalFollowBehaviour} from "./Scope";
 import {get_server_status, open_hid_device} from "./Api";
 import {SpeechService} from "./SpeechService";
+import {DataConnection} from "./DataConnection";
+import {SigProc} from "./SigProc";
+
 
 
 AddAlgorithms(Array.prototype);
@@ -79,24 +82,77 @@ switchToPage('page-1');
 const c = document.querySelector('console-element') as ConsoleElement;
 c.info('App Loaded.');
 
-const scopeEl = document.querySelector('scope-element') as ScopeElement;
+const scopeEl_EDA = document.querySelector('#eda') as ScopeElement;
+const scopeEl_SCL = document.querySelector('#scl') as ScopeElement;
 const websocketEl = document.querySelector('websocket-element') as WebSocketDataConnectionElement;
-const scope: Scope = scopeEl.Scope;
+const scopeEDA: Scope = scopeEl_EDA.Scope;
+const scopeSCL: Scope = scopeEl_SCL.Scope;
+
+const ewma : SigProc.Ewma = new SigProc.Ewma(websocketEl.Connection.Fs);
+
+const ExtractSCL = (data:ArrayLike<any>) : Float64Array => {
+    let f = Float64Array.from(data);
+    for (let i = 0; i < f.length; ++i)
+        f[i] = ewma.process(f[i]);
+    return f;
+
+};
+
+const EDAConnection: DataConnection = new DataConnection(websocketEl.Connection.Fs, 1, Float64Array);
+const SCLConnection: DataConnection = new DataConnection(websocketEl.Connection.Fs, 1, Float64Array);
+websocketEl.Connection.on('data', (data: any) => {
+    let f1 = Float64Array.from(data);
+    let f2 = Float64Array.from(data);
+    for (let i = 0; i < f1.length; ++i) {
+        const v = ewma.process(f1[i]);
+        f1[i] = v;
+        f2[i] -= v;
+    }
+    SCLConnection.AddData(f1);
+    EDAConnection.AddData(f2);
+
+});
 
 
-scope.ChannelInfo = [{
+scopeEDA.ChannelInfo = [{
     Name: 'EDA',
     Color: '#ffffff',
     Visible: true,
     RenderStyle: RenderStyle.Step,
     DownSampleAlgorithm:  DownSampleAlgorithm.MinMax  }
     ];
-scope.Fs = websocketEl.Connection.Fs;
-scope.Connection = websocketEl.Connection;
-scope.SampleUnitMultiplier = 1;
-scope.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
-scope.AutoYAxisAdjustChannel = 0;
 
+scopeSCL.ChannelInfo = [ {
+    Name: 'SCL',
+    Color: '#ffc200',
+    Visible: true,
+    RenderStyle: RenderStyle.Line,
+    DownSampleAlgorithm:  DownSampleAlgorithm.MinMax  }
+];
+
+scopeEDA.Fs = websocketEl.Connection.Fs;
+scopeEDA.Connection = EDAConnection;
+scopeEDA.SampleUnitMultiplier = 1;
+scopeEDA.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
+scopeEDA.SignalFollowBehaviour = SignalFollowBehaviour.Scroll;
+scopeEDA.AutoYAxisAdjustChannel = 0;
+scopeEDA.DataHeight = 1000;
+
+scopeEDA.AddSlave(scopeSCL);
+
+scopeSCL.TimeAxisVisible = false;
+
+
+
+
+scopeSCL.Connection = SCLConnection;
+scopeSCL.Fs = websocketEl.Connection.Fs;
+scopeSCL.SampleUnitMultiplier = 1;
+scopeSCL.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
+scopeSCL.SignalFollowBehaviour = SignalFollowBehaviour.Scroll;
+scopeSCL.AutoYAxisAdjustChannel = 0;
+scopeSCL.DataHeight = 1000;
+scopeSCL.BackColor = '#001414'
 // TEST TEST
 // scope.SignalFollowBehaviour = SignalFollowBehaviour.None;
 
@@ -117,26 +173,26 @@ connectButton.addEventListener('click', async () => {
     const speechService = new SpeechService(password, true, false);
     await speechService.StartContinuousRecognition();
     speechService.on('recognized', (text: string)=> {
-        const timeStamp: number = scope.Connection ? scope.Connection.CurrentTimeSecs : 0;
+        const timeStamp: number = scopeEDA.Connection ? scopeEDA.Connection.CurrentTimeSecs : 0;
         c.add({ text: text, className: 'recognized', replaceClassName: 'recognizing', isContinuation: true, timeStamp: timeStamp});
     });
     speechService.on('recognizing', (text: string)=>{ c.add({ text: text, className: 'recognizing', isContinuation: true})});
     const response = await open_hid_device(1240, 61281);
     console.info(JSON.stringify(response, null, 1));
 
-    scopeEl.AddCue('test 5s', 5.0);
-    c.add({ text: 'test 5s', className: 'cue', timeStamp: 5.0});
+    // scopeEl_EDA.AddCue('test 5s', 5.0);
+    // c.add({ text: 'test 5s', className: 'cue', timeStamp: 5.0});
 
     c.Events.on('console-click', (el: HTMLDivElement) => {
         if (['cue', 'recognized'].includes(el.className)) {
-            scope.SignalFollowBehaviour = SignalFollowBehaviour.None;
-            scope.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
+            scopeEDA.FollowSignal = false;
+            scopeEDA.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
         }
     });
 
     window.addEventListener('keyup', (evt: KeyboardEvent) => {
         const code = evt.code;
-        if (scope.Connection) {
+        if (scopeEDA.Connection) {
             let label = '';
             if (code.startsWith('Key'))
                 label = evt.code[3];
@@ -146,8 +202,8 @@ connectButton.addEventListener('click', async () => {
                 label = code[6];
 
             if (label !== '') {
-                scopeEl.AddCue(label, scope.Connection.CurrentTimeSecs);
-                c.add({text: label, className: 'cue', timeStamp: scope.Connection.CurrentTimeSecs});
+                scopeEl_EDA.AddCue(label, scopeEDA.Connection.CurrentTimeSecs);
+                c.add({text: label, className: 'cue', timeStamp: scopeEDA.Connection.CurrentTimeSecs});
             }
         }
     })

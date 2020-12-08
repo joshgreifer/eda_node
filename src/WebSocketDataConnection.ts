@@ -29,13 +29,19 @@
  *
  */
 
-import {DataConnection, iDataConnection} from "./DataConnection";
+import {BufferData, BufferDataConstructor, DataConnection, iDataConnection} from "./DataConnection";
 
 
 export interface iConnectionStatusListener
 {
     onConnectionStatus(conn: iDataConnection): void;
 }
+
+function parseEDA(eda_report: any) : BufferData
+{
+    return new Int16Array(eda_report).subarray(1,2);
+}
+
 
 export class WebSocketDataConnection extends DataConnection  {
 
@@ -47,8 +53,8 @@ export class WebSocketDataConnection extends DataConnection  {
     }
     private statusListeners: iConnectionStatusListener[] = [];
 
-    constructor(sample_rate: number, num_channels: number, protected bits_per_sample: number = 16, array_constructor= Int16Array ) {
-        super(sample_rate, num_channels, bits_per_sample, array_constructor);
+    constructor(sample_rate: number, num_channels: number, private array_constructor: BufferDataConstructor, private parser?: (data: any) => BufferData ) {
+        super(sample_rate, num_channels, array_constructor);
 
 
         // begin the periodic status updates
@@ -63,14 +69,14 @@ export class WebSocketDataConnection extends DataConnection  {
     }
 
     private url_!: string;
-    set Url( url: string) { this.url_ = url; this.init(this.bits_per_sample); }
+    set Url( url: string) { this.url_ = url; this.init(); }
     get Url(): string { return this.url_; }
 
     private sock_!: WebSocket;
     get Sock(): WebSocket { return this.sock_; }
 
 
-    private init( bits_per_sample: number) {
+    private init() {
 
         if (this.sock_)
             delete this.sock_;
@@ -86,30 +92,25 @@ export class WebSocketDataConnection extends DataConnection  {
         ws.onclose = (ev: CloseEvent) => {
             // console.log(ev);
             // try again later
-            setTimeout( () => { this.init(bits_per_sample) }, 2000)
+            setTimeout( () => { this.init() }, 2000)
         };
 
-        switch (bits_per_sample) {
-            case 16: ws.onmessage = (ev: MessageEvent) => {
+        // Test test
+        this.parser = parseEDA;
+
+        if (this.parser !== undefined) {
+            const parser = this.parser;
+            ws.onmessage = (ev: MessageEvent) => {
                 //      console.log(ev);
-                this.AddData(new Int16Array(ev.data).subarray(1,2)); // TEST TEST
+                this.AddData(parser(ev.data)); // TEST TEST - parse
                 this.measurePerformance();
             };
-                break;
-            case 32: ws.onmessage = (ev: MessageEvent) => {
+        } else {
+            ws.onmessage = (ev: MessageEvent) => {
                 //      console.log(ev);
-                this.AddData(new Float32Array(ev.data));
+                this.AddData(new this.array_constructor(ev.data));
                 this.measurePerformance();
             };
-                break;
-            case 64: ws.onmessage = (ev: MessageEvent) => {
-                //      console.log(ev);
-                this.AddData(new Float64Array(ev.data));
-                this.measurePerformance();
-            };
-            break;
-            default:
-                throw 'Invalid bits per sample for websocket connection';
         }
 
 

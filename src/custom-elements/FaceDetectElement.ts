@@ -44,8 +44,31 @@ export class FaceDetectElement extends HTMLElement {
     private face_count_: number = 0;
     private eyes_count_: number = 0;
 
+    private cv_ready: Promise<void> | undefined;
+    private enabled_: Promise<void> | undefined;
+
     public get FaceCount() { return this.face_count_; }
     public get EyesCount() { return this.eyes_count_; }
+
+    private get OpenCVReady() : Promise<void> {
+
+        if (this.cv_ready === undefined) {
+            this.cv_ready = new Promise<void>((resolve) => {
+                cv['onRuntimeInitialized'] = resolve;
+            });
+
+        }
+        return this.cv_ready;
+    }
+
+    private get Enabled() : Promise<void> {
+
+        const enabled: boolean = this.hasAttribute('enabled') ? (this.getAttribute('enabled') as string).toLocaleLowerCase() === 'true': false;
+        return new Promise<void>((resolve) => {
+            if (enabled)
+                resolve();
+        });
+    }
 
     async init(video: HTMLVideoElement, canvas: HTMLCanvasElement) {
         const self = this;
@@ -67,10 +90,13 @@ export class FaceDetectElement extends HTMLElement {
                 height: {min: 240, ideal: 240, max: 240}
             }
         };
+
+
         navigator.mediaDevices.getUserMedia(constraints)
             .then( async (stream) => {
                 video.srcObject = stream;
-                const processVideo = () => {
+                const processVideo = async () => {
+                    await self.Enabled;
                     try {
                         if (!stream) {
                             // clean and stop.
@@ -154,16 +180,17 @@ export class FaceDetectElement extends HTMLElement {
             }
         `;
 
-
-
-
-        cv['onRuntimeInitialized'] = async () => { await self.init(video, canvas); };
-
-
         shadow.append( style, video, canvas );
+
+        (async  () => {
+            await self.OpenCVReady;
+            await self.init(video, canvas);
+        })();
+
 
 
     }
+
 
 
 }

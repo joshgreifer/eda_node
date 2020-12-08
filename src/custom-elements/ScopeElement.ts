@@ -29,7 +29,7 @@
  *
  */
 
-import {Scope} from "../Scope";
+import {Marker, Scope} from "../Scope";
 
 export class ScopeElement extends HTMLElement {
 
@@ -45,22 +45,27 @@ export class ScopeElement extends HTMLElement {
         const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'
         const el = <HTMLDivElement>document.createElement('div');
         const scope_el = <HTMLDivElement>document.createElement('div');
-        const labels_el = <HTMLDivElement>document.createElement('div');
+        const has_labels: boolean = this.hasAttribute('labels');
+        const labels_el = has_labels ? <HTMLDivElement>document.createElement('div') : undefined;
+        const height = this.hasAttribute('height') ? this.getAttribute('height') : '80vh'
         el.appendChild(scope_el);
-        el.appendChild(labels_el);
+        if (labels_el) {
+            el.appendChild(labels_el);
+            labels_el.className = 'labels';
+        }
         const style = document.createElement('style');
         // noinspection CssInvalidPropertyValue
         el.className = 'container';
         scope_el.className = 'plot';
-        labels_el.className = 'labels';
+
         // noinspection CssInvalidFunction,CssInvalidPropertyValue
         style.textContent = `
 
         .container {
             width: 70vw;
-            height: 80vh;
+            height: ${height};
             display: grid;
-            grid-template-rows: 1fr 24px;
+            grid-template-rows: 1fr ${labels_el ? 24 : 0}px;
             grid-template-columns: 1fr;
             grid-template-areas:
                 "plot"
@@ -70,6 +75,7 @@ export class ScopeElement extends HTMLElement {
         .labels {
             grid-area: labels;
             position: relative;
+            top: -24px;
         }
         
 
@@ -99,17 +105,37 @@ export class ScopeElement extends HTMLElement {
             return scope.d2gX(t) + scope.GraphBounds.x;
         };
 
+        const value_at_time = (t: number, channel: number = 0) => {
+            let v = 0;
+            const conn = scope.Connection;
+            if (conn !== undefined) {
+                v = conn.Data(t, 1/conn.Fs).pick(channel).get(-1);
+
+            }
+            return v;
+        };
+
+        const t2y = (t: number, channel: number = 0) => {
+            return scope.d2gY(value_at_time(t, channel)) - scope.GraphBounds.height;
+        };
+
         const d2w = (d: number) => {
             return scope.duration2pixels(d);
         }
 
         this.AddCue = (cue: any, dataTime?: number) => {
-            if (scope.Connection) {
+            if (scope.Connection && labels_el) {
+                const marker = new Marker;
+
+                marker.time = dataTime ? dataTime: scope.Connection.CurrentTimeSecs;
+                marker.value =  value_at_time(marker.time);
+                scope.Markers.push(marker);
                 const cue_el = <HTMLDivElement>document.createElement('div');
-                cue_el.dataset.time = '' + (dataTime ? dataTime: scope.Connection.CurrentTimeSecs);
+                cue_el.dataset.time = '' + marker.time;
                 cue_el.classList.add('cue');
                 cue_el.innerHTML = cue;
-                cue_el.style.left = t2x(Number.parseFloat(cue_el.dataset.time)) + 'px';
+                cue_el.style.left = t2x(marker.time) + 'px';
+                // cue_el.style.top = t2y(marker.time) + 'px';
                 cue_el.addEventListener('click', () => {
                     const label = window.prompt("Enter new cue label:", cue);
                     if (label)
@@ -129,10 +155,18 @@ export class ScopeElement extends HTMLElement {
             }
 
         });
-
+        // Update the position of the cues when y axis changes
+        // scope.on('YAxisChanged', () => {
+        //     const cue_els = el.querySelectorAll('.cue');
+        //     for (const el of cue_els) {
+        //         const cue_el = el as HTMLDivElement;
+        //         cue_el.style.top = t2y(Number.parseFloat(cue_el.dataset.time as string)) + 'px';
+        //     }
+        //
+        // });
         shadow.append( style, el);
-        window.addEventListener('resize', (ev => { this.scope_.Resize(el.clientWidth, el.clientHeight-24)}));
-        this.scope_.Resize(el.clientWidth, el.clientHeight-24);
+        window.addEventListener('resize', (ev => { this.scope_.Resize(el.clientWidth, el.clientHeight - (labels_el? 24: 0) ) }));
+        this.scope_.Resize(el.clientWidth, el.clientHeight - (labels_el? 24: 0));
 
     }
 
