@@ -51,16 +51,17 @@ export class ScopeElement extends HTMLElement {
 
         marker_editor_dialog_el.innerHTML = `
             <form method="dialog">
-      <section>
-        <p><label for="favAnimal">Label:</label>
-        <input id="label" name="label" type="text">
-</p>
-      </section>
-      <menu>
-        <button id="cancel" type="reset">Cancel</button>
-        <button type="submit">Confirm</button>
-      </menu>
-    </form>
+                <section>
+                <p>
+                    <label for="label">Label:</label>
+                    <input id="label" name="label" type="text">
+                </p>
+                </section>
+                <menu>
+                    <button id="cancel" type="reset">Cancel</button>
+                    <button type="submit">Confirm</button>
+                </menu>
+            </form>
         `;
 
         // TODO: Get dialog working
@@ -103,14 +104,14 @@ export class ScopeElement extends HTMLElement {
             font-family: monospace;
             font-size: 12px;
             border-radius: 0 3px 3px 0;
-            border-left: solid red;
+            border-left: solid rgb(229,205,82);
             position: absolute;
             display: inline;
             top: 0px;
             padding: 5px;
             /*width: 100px;*/
             color: white;
-            background-color: rgb(40,90,16);
+            background-color: rgb(84,84,84);
         }
         
         .plot {

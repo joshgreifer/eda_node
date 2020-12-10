@@ -132,10 +132,10 @@ export class ConsoleElement extends HTMLElement {
             color: #d60619;
         }
         .console-output .cue {
-            color:  rgb(130,229,82);
+            color:  rgb(229,205,82);
         }
         .console-output .cue:hover {
-            background-color: #646464;
+            background-color: #3c3c3c;
             cursor: pointer;
         }
                 
@@ -165,8 +165,6 @@ export class ConsoleElement extends HTMLElement {
                 line_el = <HTMLDivElement>last_child_el;
                 line_el.textContent = '';
                 line_el.classList.remove(replaceClassName);
-
-
             }
             line_el.classList.add(item.className);
             // Timestamp the event if none provided

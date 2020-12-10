@@ -174,52 +174,48 @@ startSpeechRecognitionButton.addEventListener('click', async () => {
 connectButton.addEventListener('click', async () => {
     const response = await open_hid_device(1240, 61281);
     console.info(JSON.stringify(response, null, 1));
+});
 
-    // scopeEl_SCR.AddCue('test 5s', 5.0);
-    // c.add({ text: 'test 5s', className: 'cue', timeStamp: 5.0});
+// scopeEl_SCR.AddCue('test 5s', 5.0);
+// c.add({ text: 'test 5s', className: 'cue', timeStamp: 5.0});
 
-    c.Events.on('console-click', (el: HTMLDivElement) => {
-        if (['cue', 'recognized'].includes(el.className)) {
-            scopeSCR.FollowSignal = false;
-            scopeSCR.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
-        }
-    });
-
-    c.Events.on('console-click', (el: HTMLDivElement) => {
-        if (['cue'].includes(el.className)) {
-            scopeSCR.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
-        }
-    });
-
-    scopeEl_SCR.Scope.on('marker-added', (marker: Marker) => {
-        const line_el = c.add({text: marker.label, className: 'cue', timeStamp: marker.time });
-        marker.on('label-changed', (new_label: string) => {
-            line_el.innerText = new_label;
-        })
-        line_el.addEventListener('dblclick', () => { marker.editLabel()});
-    });
+c.Events.on('console-click', (el: HTMLDivElement) => {
+    if (['cue', 'recognized'].includes(el.className)) {
+        scopeSCR.FollowSignal = false;
+        scopeSCR.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
+    }
+});
 
 
-    window.addEventListener('keyup', (evt: KeyboardEvent) => {
-        const code = evt.code;
-        if (scopeSCR.Connection) {
-            let label = '';
-            if (code.startsWith('Key'))
-                label = evt.code[3];
-            else if (code.startsWith('Digit'))
-                label = code[5];
-            else if (code.startsWith('Numpad'))
-                label = code[6];
+scopeEl_SCR.Scope.on('marker-added', (marker: Marker) => {
+    const timeToString = (t: number) => new Date(t * 1000).toISOString().substring(14,22);
 
-            if (label !== '') {
-                const t = scopeSCR.Connection.CurrentTimeSecs;
-                const v = scopeSCR.Connection.ValueAtTime(t);
-                const marker = new Marker(t, v, label);
-                scopeEl_SCR.Scope.AddMarker(marker);
-            }
-        }
+    const line_el = c.add({text: `${timeToString(marker.time)} ${marker.label}`, className: 'cue', timeStamp: marker.time });
+    marker.on('label-changed', (new_label: string) => {
+        line_el.innerText = `${timeToString(marker.time)} ${new_label}`;
     })
+    line_el.addEventListener('dblclick', () => { marker.editLabel()});
+});
 
+
+window.addEventListener('keyup', (evt: KeyboardEvent) => {
+    const code = evt.code;
+    if (evt.altKey && scopeSCR.Connection) {
+        let label = '';
+        if (code.startsWith('Key'))
+            label = evt.code[3];
+        else if (code.startsWith('Digit'))
+            label = code[5];
+        else if (code.startsWith('Numpad'))
+            label = code[6];
+
+        if (label !== '') {
+            const t = scopeSCR.Connection.CurrentTimeSecs;
+            const v = scopeSCR.Connection.ValueAtTime(t);
+            const marker = new Marker(t, v, label);
+            scopeEl_SCR.Scope.AddMarker(marker);
+        }
+    }
 });
 
 window.setInterval(() => {

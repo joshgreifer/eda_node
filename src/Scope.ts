@@ -136,7 +136,7 @@ export enum MarkerStyle {
 export class Marker extends EventEmitter {
     style: MarkerStyle = MarkerStyle.Filled;
     radius: number = 4;
-    color: string = "#b00000";
+    color: string = "rgb(229,205,82)";
     data?: any;
 
     static editDialog: HTMLDialogElement | undefined = undefined;
@@ -417,7 +417,7 @@ export class Scope extends EventEmitter {
     }
     private conn_?: iDataConnection;
 
-    private timeToString(t: number): string {
+    private static  timeToString(t: number): string {
         t *= 1000; // ms
         if ((t % 1000) === 0)
             return  new Date(t).toISOString().replace(/^.*T00:/, '').replace(/\..*$/, '');
@@ -796,7 +796,7 @@ export class Scope extends EventEmitter {
             GDIPlus.GCH.DrawLine(ctx, this.penGridMinor, gx, 0, gx, 3);
             if (add_numbers_to_grid_minor) {
                 const align: GDIPlus.TextAlign = { H:GDIPlus.TextHorizontalAlign.Center, V:GDIPlus.TextVerticalAlign.Top};
-                GDIPlus.GCH.DrawString(ctx,  this.timeToString(start_offset_time + x), this.GridMajorTextColor, gx+1, 4, align);
+                GDIPlus.GCH.DrawString(ctx,  Scope.timeToString(start_offset_time + x), this.GridMajorTextColor, gx+1, 4, align);
             }
 
         }
@@ -808,7 +808,7 @@ export class Scope extends EventEmitter {
             let gx = this.time2pixels(x);
             GDIPlus.GCH.DrawLine(ctx, this.penGridMajor, gx, 0, gx, 4);
             const align: GDIPlus.TextAlign = { H:GDIPlus.TextHorizontalAlign.Center, V:GDIPlus.TextVerticalAlign.Top};
-            GDIPlus.GCH.DrawString(ctx,  this.timeToString(start_offset_time + x), this.GridMajorTextColor, gx+1, 4, align);
+            GDIPlus.GCH.DrawString(ctx,  Scope.timeToString(start_offset_time + x), this.GridMajorTextColor, gx+1, 4, align);
 
 
         }
