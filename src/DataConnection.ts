@@ -130,6 +130,7 @@ export interface iDataConnection extends EventEmitter
     Data(start_time_seconds: number, duration_seconds: number) : NDArray;
     DataRaw(start_time_seconds: number, duration_seconds: number) : BufferData;
     TimeToIndex(t: number) : number;
+    ValueAtTime(t: number, channel?: number) : number;
 }
 
 export class DataConnection extends EventEmitter implements iDataConnection {
@@ -172,6 +173,10 @@ export class DataConnection extends EventEmitter implements iDataConnection {
 
     FrameOffsetToIndex(frame_offset: number) : number { return this.buf_.index(frame_offset); }
     TimeToIndex(t: number) : number { return this.buf_.index(Math.round(t * this.Fs)); }
+
+    ValueAtTime(t: number, channel: number = 0) {
+        return this.Data(t, 1/this.Fs).pick(channel).get(-1);
+    }
 
     perf_start_frames_read: number = 0;
     perf_start_time: number = 0;

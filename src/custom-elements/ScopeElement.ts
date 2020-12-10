@@ -33,12 +33,9 @@ import {Marker, Scope} from "../Scope";
 
 export class ScopeElement extends HTMLElement {
 
-    private scope_: Scope;
-
+    private readonly scope_: Scope;
 
     public get Scope() : Scope { return this.scope_; }
-
-    public AddCue: (cue: any, dataTime?: number) => void;
 
     constructor() {
         super();
@@ -47,7 +44,29 @@ export class ScopeElement extends HTMLElement {
         const scope_el = <HTMLDivElement>document.createElement('div');
         const has_labels: boolean = this.hasAttribute('labels');
         const labels_el = has_labels ? <HTMLDivElement>document.createElement('div') : undefined;
+        const marker_editor_dialog_el = <HTMLDialogElement>document.createElement('dialog');
+
         const height = this.hasAttribute('height') ? this.getAttribute('height') : '80vh'
+        const width = this.hasAttribute('width') ? this.getAttribute('width') : '70vh'
+
+        marker_editor_dialog_el.innerHTML = `
+            <form method="dialog">
+      <section>
+        <p><label for="favAnimal">Label:</label>
+        <input id="label" name="label" type="text">
+</p>
+      </section>
+      <menu>
+        <button id="cancel" type="reset">Cancel</button>
+        <button type="submit">Confirm</button>
+      </menu>
+    </form>
+        `;
+
+        // TODO: Get dialog working
+        // Marker.editDialog = marker_editor_dialog_el;
+
+        el.appendChild(marker_editor_dialog_el);
         el.appendChild(scope_el);
         if (labels_el) {
             el.appendChild(labels_el);
@@ -62,7 +81,9 @@ export class ScopeElement extends HTMLElement {
         style.textContent = `
 
         .container {
-            width: 70vw;
+            margin: 0;
+            gap: 0;
+            width: ${width};
             height: ${height};
             display: grid;
             grid-template-rows: 1fr ${labels_el ? 24 : 0}px;
@@ -75,7 +96,6 @@ export class ScopeElement extends HTMLElement {
         .labels {
             grid-area: labels;
             position: relative;
-            top: -24px;
         }
         
 
@@ -105,47 +125,28 @@ export class ScopeElement extends HTMLElement {
             return scope.d2gX(t) + scope.GraphBounds.x;
         };
 
-        const value_at_time = (t: number, channel: number = 0) => {
-            let v = 0;
-            const conn = scope.Connection;
-            if (conn !== undefined) {
-                v = conn.Data(t, 1/conn.Fs).pick(channel).get(-1);
-
-            }
-            return v;
-        };
-
-        const t2y = (t: number, channel: number = 0) => {
-            return scope.d2gY(value_at_time(t, channel)) - scope.GraphBounds.height;
-        };
 
         const d2w = (d: number) => {
             return scope.duration2pixels(d);
         }
 
-        this.AddCue = (cue: any, dataTime?: number) => {
-            if (scope.Connection && labels_el) {
-                const marker = new Marker;
-
-                marker.time = dataTime ? dataTime: scope.Connection.CurrentTimeSecs;
-                marker.value =  value_at_time(marker.time);
-                scope.Markers.push(marker);
+        scope.on('marker-added', (marker: Marker) => {
+            if (labels_el) {
                 const cue_el = <HTMLDivElement>document.createElement('div');
+                marker.on('label-changed', (new_label) => {
+                    cue_el.innerHTML = new_label;
+                });
                 cue_el.dataset.time = '' + marker.time;
                 cue_el.classList.add('cue');
-                cue_el.innerHTML = cue;
+                cue_el.innerHTML = marker.label;
                 cue_el.style.left = t2x(marker.time) + 'px';
-                // cue_el.style.top = t2y(marker.time) + 'px';
-                cue_el.addEventListener('click', () => {
-                    const label = window.prompt("Enter new cue label:", cue);
-                    if (label)
-                        cue_el.innerHTML = cue = label;
 
-                })
                 labels_el.appendChild(cue_el);
             }
 
-        }
+        });
+
+
         // Update the position of the cues when time axis changes
         scope.on('TimeAxisChanged', () => {
             const cue_els = el.querySelectorAll('.cue');

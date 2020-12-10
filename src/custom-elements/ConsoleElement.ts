@@ -45,7 +45,7 @@ export interface ConsoleMessage {
 
 export class ConsoleElement extends HTMLElement {
 
-    public add: (item: ConsoleMessage) => void;
+    public add: (item: ConsoleMessage) => HTMLDivElement;
     public log: (text: string) => void;
     public warn: (text: string) => void;
     public info: (text: string) => void;
@@ -102,7 +102,7 @@ export class ConsoleElement extends HTMLElement {
         .console {
             font-size: 13px;
             overflow: auto;
-            /* height: 50vh; */
+            height: 300px;
             overflow-y: scroll;
             overflow-x: scroll;
             overscroll-behavior-y: contain;
@@ -153,7 +153,7 @@ export class ConsoleElement extends HTMLElement {
             color: #46688d;
         }
 `;
-        const add = (item: ConsoleMessage) => {
+        const add = (item: ConsoleMessage): HTMLDivElement  => {
             const is_continuation: boolean = !!item.isContinuation;
             const replaceClassName: string = item.replaceClassName || item.className;
 
@@ -177,7 +177,9 @@ export class ConsoleElement extends HTMLElement {
             if (line_el !== last_child_el) {
                 el.appendChild(line_el);
                 line_el.addEventListener('click', () => { self.Events.emit('console-click', line_el)})
+                line_el.addEventListener('dblclick', () => { self.Events.emit('console-dblclick', line_el)})
             }
+            return line_el;
         }
 
         const clear = () => { while (container_el.firstChild) container_el.removeChild(container_el.firstChild); }

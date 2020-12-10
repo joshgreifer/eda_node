@@ -133,12 +133,45 @@ export enum MarkerStyle {
     Filled,
     Hollow
 }
-export class Marker {
+export class Marker extends EventEmitter {
     style: MarkerStyle = MarkerStyle.Filled;
     radius: number = 4;
-    color: string = "#fff";
-    time!: number;
-    value!: number
+    color: string = "#b00000";
+    data?: any;
+
+    static editDialog: HTMLDialogElement | undefined = undefined;
+
+    constructor(public readonly time: number, public readonly value: number, public label: string) {
+        super();
+    }
+
+    editLabel() {
+        let label;
+        if (Marker.editDialog) {
+            const label_el = Marker.editDialog.querySelector('#label') as HTMLInputElement;
+            label_el.value = this.label;
+            Marker.editDialog.showModal();
+            if (Marker.editDialog.returnValue === 'Confirm')
+                label = label_el.value;
+        } else {
+            label = window.prompt("Enter new cue label:", this.label);
+        }
+        if (label) {
+            this.label = label;
+            this.emit('label-changed', label);
+        }
+    }
+
+    hitTest(scope: Scope, x: number, y: number): boolean {
+        const marker_g_x = scope.d2gX(this.time) + scope.gBounds.x;
+        const marker_g_y = scope.d2gY(this.value) + scope.gBounds.y;
+
+        const offset_x = Math.abs(marker_g_x - x);
+        const offset_y = Math.abs(marker_g_y - y);
+
+        return (offset_x <= this.radius  && offset_y <= this.radius);
+
+    }
 }
 
 export enum RenderStyle {
@@ -179,16 +212,28 @@ The Scope object depends on a
  */
 export class Scope extends EventEmitter {
 
-    public Markers: Marker[] = [];
+    private markers_: Marker[] = [];
+    private markerUnderCursor: Marker | undefined;
 
-    private onScreenCanvas!: HTMLCanvasElement;
+    public AddMarker(marker: Marker) {
+        this.markers_.push(marker);
+        this.emit('marker-added', marker);
+    }
 
-    private onScreenContext!: CanvasRenderingContext2D;
+    public FindMarker(g_x: number, g_y: number) : Marker | undefined {
+        for (const m of this.markers_)
+            if (m.hitTest(this, g_x, g_y))
+                return m;
+    }
+
+    private readonly onScreenCanvas!: HTMLCanvasElement;
+
+    private readonly onScreenContext!: CanvasRenderingContext2D;
 
     private offScreenContexts: CanvasRenderingContext2D[] = [];
     private currentOffScreenContextsIndex = 0; // toggles between 1 and 2 on each Render
 
-    public clut: Clut.Clut;
+    public ColorLookupTable: Clut.Clut;
 
     // private gc_OnScreen: GDIPlus.GCH;
     // private gc_OffScreen: GDIPlus.GCH;
@@ -279,7 +324,7 @@ export class Scope extends EventEmitter {
     // The data time when data was last rendered.  dataTime - dataTimeOld  == data needed to draw in RenderData
     private dataTimeOld: number = -1;
     // the boundary rectangle of the graph area, in pixels
-    private gBounds!: GDIPlus.Rect;
+    gBounds!: GDIPlus.Rect;
 
     public get GraphBounds() : GDIPlus.Rect { return this.gBounds; }
     // The boundary rectangle of the X and Y axes.
@@ -362,10 +407,12 @@ export class Scope extends EventEmitter {
         // if (conn !== this.conn_ && this.conn_ !== undefined)
         //     this.conn_.off('data', lambda);
 
-        if (conn !== undefined)
+        if (conn !== undefined) {
             conn.on('data', lambda);
-
+            this.Fs = conn.Fs;
+        }
         this.conn_ = conn;
+
 
     }
     private conn_?: iDataConnection;
@@ -381,7 +428,7 @@ export class Scope extends EventEmitter {
     constructor(container: HTMLElement, private gch = GDIPlus.GCH) {
         super();
 
-        this.clut = Clut.Presets.GRAYSCALE;
+        this.ColorLookupTable = Clut.Presets.GRAYSCALE;
 
 
         for (let i = 0; i < 3; ++i) {
@@ -476,7 +523,8 @@ export class Scope extends EventEmitter {
                             this.onScreenCanvas.style.cursor = 'ns-resize';
                             break;
                         case Area.Graph:
-                            this.onScreenCanvas.style.cursor = 'zoom-in';
+                            this.markerUnderCursor = this.FindMarker(x, y);
+                            this.onScreenCanvas.style.cursor = this.markerUnderCursor ? 'crosshair' : 'zoom-in';
                             break;
                         case Area.FollowSignalButton:
                         case Area.AutoScaleButton:
@@ -504,6 +552,19 @@ export class Scope extends EventEmitter {
 
             this.captureArea = Area.None;
         };
+
+
+        this.onScreenCanvas.ondblclick = (ev: MouseEvent )=> {
+            if (this.markerUnderCursor)
+                this.markerUnderCursor.editLabel();
+            else {
+                const [x, y]  = getCoords(ev);
+                const marker = new Marker(this.g2dX(x-this.gBounds.x), this.dBounds.y + this.g2dY(this.gBounds.height-y), 'Cue');
+                this.AddMarker(marker);
+                // marker.editLabel();
+            }
+        };
+
         const W = (this.onScreenCanvas.parentElement as HTMLDivElement).clientWidth;
         const H = (this.onScreenCanvas.parentElement as HTMLDivElement).clientHeight;
         this.Resize(W, H);
@@ -816,9 +877,9 @@ export class Scope extends EventEmitter {
             -this.SampleUnitMultiplier * this.dBounds.height);
 
 
-        for (let marker of this.Markers) {
+        for (let marker of this.markers_) {
             if (marker.time >= this.DataX && marker.time < this.DataX + this.DataWidth && marker.value >= this.DataY && marker.value < this.DataY + this.DataHeight)
-                GDIPlus.GCH.FillCircle(ctx, marker.color, this.d2gX(marker.time) + this.gBounds.x, this.d2gY(marker.value) + + this.gBounds.y, marker.radius);
+                GDIPlus.GCH.FillCircle(ctx, marker.color, this.d2gX(marker.time) + this.gBounds.x, this.d2gY(marker.value) + this.gBounds.y, marker.radius);
         }
 
     }
@@ -955,7 +1016,7 @@ export class Scope extends EventEmitter {
                 const data_val =  data.data[i+start_val];
                 // clamp
                 // if (data_val < 0) data_val = 0; else if (data_val > 1.0) data_val = 1.0;
-                data_pixels[i] = this.clut.rgba[Math.floor(data_val * this.clut.SZ)];
+                data_pixels[i] = this.ColorLookupTable.rgba[Math.floor(data_val * this.ColorLookupTable.SZ)];
             }
 
             const img = await createImageBitmap(data_as_image /* , { imageOrientation: "flipY" } FlipY is done by xform matrix */ ).catch(reason => {
@@ -1194,7 +1255,9 @@ export class Scope extends EventEmitter {
     pixels2duration(gx: number): number {
         return this.dBounds.width * gx / this.gBounds.width;
     }
-
+    g2dX(gx: number): number {
+        return this.pixels2duration(gx) + this.dBounds.x;
+    }
     samples_per_pixel(): number {
         return this.dBounds.width  / this.gBounds.width * this.Fs;
     }

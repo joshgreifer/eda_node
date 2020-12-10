@@ -1,3 +1,5 @@
+import {DataConnection, iDataConnection} from "./DataConnection";
+
 export namespace SigProc {
 
     export interface Processor {
@@ -27,6 +29,47 @@ export namespace SigProc {
             this.Val = (): number => {
                 return s;
             }
+        }
+
+    }
+
+    // Analyse an EDA signal (see file: doc/Guide to electrodermal activity.pdf)
+    export class EDAAnalyzer {
+
+        // EDA from sensor
+        public EDA: iDataConnection;
+
+        // Skin Conductance level
+        public SCL: iDataConnection;
+
+        // Skin conductance response
+        public SCR: iDataConnection;
+
+        constructor(conn: iDataConnection) {
+
+            const ewma : SigProc.Ewma = new SigProc.Ewma(conn.Fs);
+
+
+            const SCRConnection: DataConnection = new DataConnection(conn.Fs, 1, Float64Array);
+            const SCLConnection: DataConnection = new DataConnection(conn.Fs, 1, Float64Array);
+
+            conn.on('data', (data: any) => {
+                let f1 = Float64Array.from(data);
+                let f2 = Float64Array.from(data);
+                for (let i = 0; i < f1.length; ++i) {
+                    const v = ewma.process(f1[i]);
+                    f1[i] = v;
+                    f2[i] -= v;
+                }
+                SCLConnection.AddData(f1);
+                SCRConnection.AddData(f2);
+
+            });
+
+            this.EDA = conn;
+            this.SCL = SCLConnection;
+            this.SCR = SCRConnection;
+
         }
 
     }

@@ -76,7 +76,7 @@ export class SpeechService extends EventEmitter
         const this_ =  this;
         this.recognizer.canceled = (sender, event) => {
             console.log('canceled', event);
-            this_.emit('recognized',  '$ERROR # (probably) ' + event.errorDetails);
+            this_.emit('error',  'Speech Recognition Error: ' + event.errorDetails);
         };
 
         this.recognizer.recognized = (sender, event) => {

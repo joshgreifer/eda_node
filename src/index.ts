@@ -39,11 +39,19 @@ import {ConsoleElement} from "./custom-elements/ConsoleElement";
 import {ScopeElement} from "./custom-elements/ScopeElement";
 import {FaceDetectElement} from "./custom-elements/FaceDetectElement";
 import {WebSocketDataConnectionElement} from "./custom-elements/WebSocketDataConnectionElement";
-import {AutoYAxisAdjustBehaviour, DownSampleAlgorithm, RenderStyle, Scope, SignalFollowBehaviour} from "./Scope";
+import {
+    AutoYAxisAdjustBehaviour,
+    DownSampleAlgorithm,
+    Marker,
+    RenderStyle,
+    Scope,
+    SignalFollowBehaviour
+} from "./Scope";
 import {get_server_status, open_hid_device} from "./Api";
 import {SpeechService} from "./SpeechService";
 import {DataConnection} from "./DataConnection";
 import {SigProc} from "./SigProc";
+import EDAAnalyzer = SigProc.EDAAnalyzer;
 
 
 
@@ -82,40 +90,18 @@ switchToPage('page-1');
 const c = document.querySelector('console-element') as ConsoleElement;
 c.info('App Loaded.');
 
-const scopeEl_EDA = document.querySelector('#eda') as ScopeElement;
-const scopeEl_SCL = document.querySelector('#scl') as ScopeElement;
+const scopeEl_SCR = document.querySelector('.scr') as ScopeElement;
+const scopeEl_SCL = document.querySelector('.scl') as ScopeElement;
+
 const websocketEl = document.querySelector('websocket-element') as WebSocketDataConnectionElement;
-const scopeEDA: Scope = scopeEl_EDA.Scope;
+
+const scopeSCR: Scope = scopeEl_SCR.Scope;
 const scopeSCL: Scope = scopeEl_SCL.Scope;
 
-const ewma : SigProc.Ewma = new SigProc.Ewma(websocketEl.Connection.Fs);
+const edaAnalyzer: EDAAnalyzer = new EDAAnalyzer(websocketEl.Connection);
 
-const ExtractSCL = (data:ArrayLike<any>) : Float64Array => {
-    let f = Float64Array.from(data);
-    for (let i = 0; i < f.length; ++i)
-        f[i] = ewma.process(f[i]);
-    return f;
-
-};
-
-const EDAConnection: DataConnection = new DataConnection(websocketEl.Connection.Fs, 1, Float64Array);
-const SCLConnection: DataConnection = new DataConnection(websocketEl.Connection.Fs, 1, Float64Array);
-websocketEl.Connection.on('data', (data: any) => {
-    let f1 = Float64Array.from(data);
-    let f2 = Float64Array.from(data);
-    for (let i = 0; i < f1.length; ++i) {
-        const v = ewma.process(f1[i]);
-        f1[i] = v;
-        f2[i] -= v;
-    }
-    SCLConnection.AddData(f1);
-    EDAConnection.AddData(f2);
-
-});
-
-
-scopeEDA.ChannelInfo = [{
-    Name: 'EDA',
+scopeSCR.ChannelInfo = [{
+    Name: 'SCR',
     Color: '#ffffff',
     Visible: true,
     RenderStyle: RenderStyle.Step,
@@ -130,69 +116,93 @@ scopeSCL.ChannelInfo = [ {
     DownSampleAlgorithm:  DownSampleAlgorithm.MinMax  }
 ];
 
-scopeEDA.Fs = websocketEl.Connection.Fs;
-scopeEDA.Connection = EDAConnection;
-scopeEDA.SampleUnitMultiplier = 1;
-scopeEDA.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
-scopeEDA.SignalFollowBehaviour = SignalFollowBehaviour.Scroll;
-scopeEDA.AutoYAxisAdjustChannel = 0;
-scopeEDA.DataHeight = 1000;
+// set common properties for all scopes
+for (const scope of [scopeSCR, scopeSCL]) {
+    scope.SampleUnitMultiplier = 1;
+    scope.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
+    scope.SignalFollowBehaviour = SignalFollowBehaviour.Scroll;
+    scope.AutoYAxisAdjustChannel = 0;
+    scope.DataHeight = 1000;
+}
 
-scopeEDA.AddSlave(scopeSCL);
+scopeSCR.Connection = edaAnalyzer.SCR;
+scopeSCR.AddSlave(scopeSCL);
 
 scopeSCL.TimeAxisVisible = false;
-
-
-
-
-scopeSCL.Connection = SCLConnection;
-scopeSCL.Fs = websocketEl.Connection.Fs;
-scopeSCL.SampleUnitMultiplier = 1;
-scopeSCL.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
-scopeSCL.SignalFollowBehaviour = SignalFollowBehaviour.Scroll;
-scopeSCL.AutoYAxisAdjustChannel = 0;
-scopeSCL.DataHeight = 1000;
+scopeSCL.Connection = edaAnalyzer.SCL;
 scopeSCL.BackColor = '#001414'
-// TEST TEST
-// scope.SignalFollowBehaviour = SignalFollowBehaviour.None;
+
 
 console.info('Connected scope to websocket.');
 
 const connectButton = document.querySelector('#connect-button') as HTMLButtonElement;
+const startSpeechRecognitionButton = document.querySelector('#start-speech-recognition-button') as HTMLButtonElement;
 const statusIndicator = document.querySelector('#status-indicator') as HTMLSpanElement;
 
-const passwordElement = document.querySelector('#password-input') as HTMLInputElement;
+const passwordElement = document.querySelector('#speech-sdk-password-input') as HTMLInputElement;
 
 passwordElement.addEventListener('input', ()=> {
     connectButton.disabled = !passwordElement.value;
 
 });
 
-connectButton.addEventListener('click', async () => {
+startSpeechRecognitionButton.addEventListener('click', async () => {
     const password = passwordElement.value;
-    const speechService = new SpeechService(password, true, false);
-    await speechService.StartContinuousRecognition();
-    speechService.on('recognized', (text: string)=> {
-        const timeStamp: number = scopeEDA.Connection ? scopeEDA.Connection.CurrentTimeSecs : 0;
-        c.add({ text: text, className: 'recognized', replaceClassName: 'recognizing', isContinuation: true, timeStamp: timeStamp});
-    });
-    speechService.on('recognizing', (text: string)=>{ c.add({ text: text, className: 'recognizing', isContinuation: true})});
+    if (password !== "") {
+        const speechService = new SpeechService(password, true, false);
+        await speechService.StartContinuousRecognition();
+        speechService.on('recognized', (text: string) => {
+            const timeStamp: number = scopeSCR.Connection ? scopeSCR.Connection.CurrentTimeSecs : 0;
+            c.add({
+                text: text,
+                className: 'recognized',
+                replaceClassName: 'recognizing',
+                isContinuation: true,
+                timeStamp: timeStamp
+            });
+        });
+        speechService.on('recognizing', (text: string) => {
+            c.add({text: text, className: 'recognizing', isContinuation: true})
+        });
+        speechService.on('error', async (text: string) => {
+            c.error(text);
+            await speechService.StopContinuousRecognition();
+        });
+    }
+});
+
+connectButton.addEventListener('click', async () => {
     const response = await open_hid_device(1240, 61281);
     console.info(JSON.stringify(response, null, 1));
 
-    // scopeEl_EDA.AddCue('test 5s', 5.0);
+    // scopeEl_SCR.AddCue('test 5s', 5.0);
     // c.add({ text: 'test 5s', className: 'cue', timeStamp: 5.0});
 
     c.Events.on('console-click', (el: HTMLDivElement) => {
         if (['cue', 'recognized'].includes(el.className)) {
-            scopeEDA.FollowSignal = false;
-            scopeEDA.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
+            scopeSCR.FollowSignal = false;
+            scopeSCR.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
         }
     });
 
+    c.Events.on('console-click', (el: HTMLDivElement) => {
+        if (['cue'].includes(el.className)) {
+            scopeSCR.DataX = Number.parseFloat(el.getAttribute('time-stamp') as string);
+        }
+    });
+
+    scopeEl_SCR.Scope.on('marker-added', (marker: Marker) => {
+        const line_el = c.add({text: marker.label, className: 'cue', timeStamp: marker.time });
+        marker.on('label-changed', (new_label: string) => {
+            line_el.innerText = new_label;
+        })
+        line_el.addEventListener('dblclick', () => { marker.editLabel()});
+    });
+
+
     window.addEventListener('keyup', (evt: KeyboardEvent) => {
         const code = evt.code;
-        if (scopeEDA.Connection) {
+        if (scopeSCR.Connection) {
             let label = '';
             if (code.startsWith('Key'))
                 label = evt.code[3];
@@ -202,8 +212,10 @@ connectButton.addEventListener('click', async () => {
                 label = code[6];
 
             if (label !== '') {
-                scopeEl_EDA.AddCue(label, scopeEDA.Connection.CurrentTimeSecs);
-                c.add({text: label, className: 'cue', timeStamp: scopeEDA.Connection.CurrentTimeSecs});
+                const t = scopeSCR.Connection.CurrentTimeSecs;
+                const v = scopeSCR.Connection.ValueAtTime(t);
+                const marker = new Marker(t, v, label);
+                scopeEl_SCR.Scope.AddMarker(marker);
             }
         }
     })

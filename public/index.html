@@ -13,17 +13,17 @@
             display: none;
         }
         .app-container {
-            margin: 5px;
-            font-size: 16px;
-            font-family: Arial;
+            margin: 2px;
+            font-size: 14px;
+            font-family: monospace;
             display: grid;
             gap: 5px;
             grid-template-rows: 24px 1fr 24px;
-            grid-template-columns: 1fr 30vw;
+
             grid-template-areas:
-                    "hd hd"
-        "pages console"
-        "ft ft";
+                "hd"
+                "pages"
+                "ft";
         }
         .page {
 
@@ -44,9 +44,38 @@
             background-color: #688a7f;
         }
 
+        .settings {
+            font-size: 12px;
+        }
 
+        .settings label {
+            display: inline-block;
 
+            width: 200px;
+        }
 
+        .scopes {
+            display: grid;
+            grid-template-columns: auto 30vw;
+            grid-template-areas:
+                "scl control"
+                "scr console";
+        }
+
+        .scopes .scl {
+            grid-area: scl;
+        }
+        .scopes .scr {
+            grid-area: scr;
+        }
+
+        .scopes .control {
+            grid-area: control;
+            background-color: #71a992;
+        }
+        .scopes console-element {
+            max-height: 200px;
+        }
 
     </style>
 </head>
@@ -56,28 +85,42 @@
 <div class="app-container">
     <div class="header">
         <span>V 1.0</span>
-        <button id="connect-button" disabled >Connect to EDA</button>
-        Speech Recognizer Password: <input id="password-input" type="password">
-        <button class="page-switcher" page="page-1">EDA Plot</button>
-        <button class="page-switcher" page="page-2">Options</button>
+        <button id="connect-button">Connect to EDA</button>
+        <button class="page-switcher" page="page-1">Options</button>
+        <button class="page-switcher" page="page-2">EDA Plot</button>
         <button class="page-switcher" page="page-3">Face Detection</button>
     </div>
     <div class="pages">
+
         <div class="page" id="page-1">
-            <scope-element height="240px" id="scl"></scope-element>
-            <scope-element  height="60vh" id="eda" labels></scope-element>
-          </div>
+            <div class="settings">
+                <ul>
+                    <li>
+                        <label for="speech-sdk-password-input">Speech Recognizer Password: </label>
+                        <input id="speech-sdk-password-input" type="password">
+                        <button id="start-speech-recognition-button">Start Speech Recognition</button>
+                    </li>
+                    <li><label for="enable-gaze-detection">Detect eyes open/closed: </label><input id="enable-gaze-detection" type="checkbox"></li>
+                </ul>
+
+
+            </div>
+
+        </div>
         <div class="page" id="page-2">
+            <div class="scopes">
+                <scope-element height="200px" width="70vw" class="scl"></scope-element>
+                <scope-element height="50vh"  width="70vw" class="scr" labels></scope-element>
+                <console-element></console-element>
+                <div class="control"></div>
+            </div>
 
-            <custom-element value="Hello, world!">
-
-            </custom-element>
-         </div>
+        </div>
         <div class="page" id="page-3">
             <facedetect-element enabled="false"></facedetect-element>
         </div>
     </div>
-    <console-element></console-element>
+
     <div class="footer">
         <span id="status-indicator">(server status)</span>
         <websocket-element style="float: right; margin-right: 5px"  url="ws://localhost:1102" bits="16" channels="1" sample-rate="188.2">
