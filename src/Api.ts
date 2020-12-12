@@ -1,3 +1,4 @@
+import {BufferData} from "./DataConnection";
 
 
 export async function open_hid_device(vid: number, pid:number): Promise<any> {
@@ -22,4 +23,17 @@ export async function get_server_status(): Promise<{ 'message': string, 'websock
         },
     } );
     return await api_response.json();
+}
+
+export async function save_buffer(data: BufferData ) : Promise<any> {
+    const api_response = await fetch(`/data/1/test`, {
+        method: 'post',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/octet-stream'
+        },
+        body: data
+    } );
+    return await api_response.json();
+
 }

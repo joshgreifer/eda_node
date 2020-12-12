@@ -1,10 +1,15 @@
 // Server
 import * as HID from "node-hid";
+import * as BodyParser from "body-parser";
+
 import express, {Express, Request, Response} from "express";
 
 const WebSocket = require('ws');
 
+const rawParser = BodyParser.raw({ type: 'application/octet-stream'});
+
 import path from "path";
+import {Numpy} from "./Numpy";
 
 const app: Express = express();
 const port = 3050; // default port to listen
@@ -24,7 +29,7 @@ let wss: any  = null;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use( (err: any, req: any, res: any, next: any) => {
+app.use( (err: any, req: any, res: any) => {
     res.set('Content-Type', 'application/json');
     console.error(err.stack);
     res.status(500).send(JSON.stringify({ "message":  err.toString(), "stacktrace": err.stack }, null, 2));
@@ -43,7 +48,31 @@ app.get( "/devices", ( req: Request, res: Response ) => {
 
 
 app.get('/status', ( req: Request, res: Response ) => {
+    res.set('Content-Type', 'application/json');
     res.write(JSON.stringify(status, null, 2));
+    res.end();
+});
+
+app.post('/data/:num_channels/:filename', rawParser, ( req: Request, res: Response ) => {
+
+    const num_channels = Number.parseInt(req.params.num_channels);
+
+    let filename = req.params.filename;
+    if (!filename.endsWith('.npy'))
+        filename += '.npy'
+
+    const data = req.body;
+
+    Numpy.save(filename, data, [num_channels, Math.floor(data.length / num_channels)]);
+
+
+
+    res.set('Content-Type', 'application/json');
+    res.write(JSON.stringify({
+        status: 'Success',
+        filename: filename,
+        num_channels: num_channels
+    }, null, 2));
     res.end();
 });
 

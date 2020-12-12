@@ -47,22 +47,25 @@ export namespace SigProc {
 
         constructor(conn: iDataConnection) {
 
-            const ewma : SigProc.Ewma = new SigProc.Ewma(conn.Fs);
+            const ewma : SigProc.Ewma = new SigProc.Ewma(5 * conn.Fs);
 
 
             const SCRConnection: DataConnection = new DataConnection(conn.Fs, 1, Float64Array);
-            const SCLConnection: DataConnection = new DataConnection(conn.Fs, 1, Float64Array);
+            const SCLConnection: DataConnection = new DataConnection(conn.Fs, 2, Float64Array);
 
             conn.on('data', (data: any) => {
-                let f1 = Float64Array.from(data);
-                let f2 = Float64Array.from(data);
-                for (let i = 0; i < f1.length; ++i) {
-                    const v = ewma.process(f1[i]);
-                    f1[i] = v;
-                    f2[i] -= v;
+                let data_SCR = new Float64Array(data.length);
+                let data_EDA_and_SCL = new Float64Array(2 * data.length);
+                for (let i = 0; i < data.length; ++i) {
+                    const v = data[i];
+                    const v_ewma = ewma.process(v);
+                    data_SCR[i] = v - v_ewma;
+                    data_EDA_and_SCL[2 * i] = v;
+                    data_EDA_and_SCL[2 * i + 1] = v_ewma;
                 }
-                SCLConnection.AddData(f1);
-                SCRConnection.AddData(f2);
+                SCRConnection.AddData(data_SCR);
+                SCLConnection.AddData(data_EDA_and_SCL);
+
 
             });
 

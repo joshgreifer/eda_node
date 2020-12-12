@@ -47,7 +47,7 @@ import {
     Scope,
     SignalFollowBehaviour
 } from "./Scope";
-import {get_server_status, open_hid_device} from "./Api";
+import {get_server_status, open_hid_device, save_buffer} from "./Api";
 import {SpeechService} from "./SpeechService";
 import {DataConnection} from "./DataConnection";
 import {SigProc} from "./SigProc";
@@ -100,20 +100,31 @@ const scopeSCL: Scope = scopeEl_SCL.Scope;
 
 const edaAnalyzer: EDAAnalyzer = new EDAAnalyzer(websocketEl.Connection);
 
-scopeSCR.ChannelInfo = [{
-    Name: 'SCR',
-    Color: '#ffffff',
-    Visible: true,
-    RenderStyle: RenderStyle.Step,
-    DownSampleAlgorithm:  DownSampleAlgorithm.MinMax  }
-    ];
+scopeSCR.ChannelInfo = [
+    {
+        Name: 'SCR',
+        Color: '#ffffff',
+        Visible: true,
+        RenderStyle: RenderStyle.Step,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    }
+];
 
-scopeSCL.ChannelInfo = [ {
-    Name: 'SCL',
-    Color: '#ffc200',
-    Visible: true,
-    RenderStyle: RenderStyle.Line,
-    DownSampleAlgorithm:  DownSampleAlgorithm.MinMax  }
+scopeSCL.ChannelInfo = [
+    {
+        Name: 'EDA',
+        Color: '#00ff00',
+        Visible: true,
+        RenderStyle: RenderStyle.Step,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    },
+    {
+        Name: 'SCL',
+        Color: '#ffc200',
+        Visible: true,
+        RenderStyle: RenderStyle.Line,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    }
 ];
 
 // set common properties for all scopes
@@ -172,6 +183,12 @@ startSpeechRecognitionButton.addEventListener('click', async () => {
 });
 
 connectButton.addEventListener('click', async () => {
+    // TEST TEST
+    const data = new Uint8Array(6);
+    for (let i = 0; i < 6; ++i)
+        data[i] = i;
+    await save_buffer(data);
+
     const response = await open_hid_device(1240, 61281);
     console.info(JSON.stringify(response, null, 1));
 });

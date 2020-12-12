@@ -1,5 +1,4 @@
 const path = require('path');
-const webpack = require('webpack');
 const CopyPlugin = require('copy-webpack-plugin');
 
 const clientConfig = {
@@ -21,7 +20,7 @@ const clientConfig = {
         path: path.resolve(__dirname, 'dist/public'),
     },
     resolve: {
-        extensions: ['.js', '.json', '.vue', 'ConsoleElement.ts', 'js.map'],
+        extensions: ['.js', '.json', '.vue', '.ts', 'js.map'],
         alias: {
             '@': path.resolve(__dirname),
             '~': path.resolve(__dirname),
@@ -66,8 +65,20 @@ const serverConfig = {
     entry: './src/app.ts',
     output: {
         path: path.resolve(__dirname, 'dist'),
-        filename: 'server.js'
-    }
+        filename: 'app.js'
+    },
+    resolve: {
+        extensions: ['.js', '.ts', 'js.map'],
+        alias: {
+            '@': path.resolve(__dirname),
+            '~': path.resolve(__dirname),
+        },
+        modules: [
+            'node_modules',
+        ]
+    },
+
+    devtool: 'source-map',
 };
 
 module.exports = [ serverConfig, clientConfig ];

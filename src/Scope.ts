@@ -30,7 +30,7 @@
 
 import * as NDArray from 'ndarray';
 import * as GDIPlus from './GDIPlus';
-import {Pen, TextVerticalAlign, TransformMatrix} from './GDIPlus';
+import {TextVerticalAlign, TransformMatrix} from './GDIPlus';
 import * as Clut from './Clut';
 
 import {iDataConnection} from './DataConnection';
@@ -361,7 +361,6 @@ export class Scope extends EventEmitter {
 
     public AutoYAxisAdjustChannel = -1; // no channel
 
-    private _autoYTrack = true;
     // max, min visible values
     // Used for autoYScale
     private maxY!: number;
@@ -425,7 +424,7 @@ export class Scope extends EventEmitter {
             return  '.' + new Date(t).toISOString().replace(/^.*\./, '').replace(/Z$/, '');
     }
 
-    constructor(container: HTMLElement, private gch = GDIPlus.GCH) {
+    constructor(container: HTMLElement) {
         super();
 
         this.ColorLookupTable = Clut.Presets.GRAYSCALE;
@@ -888,11 +887,11 @@ export class Scope extends EventEmitter {
 
         if (this.conn_ && this.conn_.HasData)  {
             const YExtentChanged = await this.RenderPlotData(ctx, start_time, duration);
-            if (YExtentChanged) this.AdjustYAxis();
+            /* if (YExtentChanged) */ this.AdjustYAxis();
 
         } else { // no data
 
-            GDIPlus.GCH.DrawString(ctx, "(No signal)", this.ForeColor, this.gBounds.x + this.gBounds.width / 2, this.gBounds.y + this.gBounds.height / 2, { H: GDIPlus.TextHorizontalAlign.Center, V: TextVerticalAlign.Middle });
+            GDIPlus.GCH.DrawString(ctx, "(No data)", this.ForeColor, this.gBounds.x + this.gBounds.width / 2, this.gBounds.y + this.gBounds.height / 2, { H: GDIPlus.TextHorizontalAlign.Center, V: TextVerticalAlign.Middle });
 
         }
         this.RenderMarkers(ctx);
@@ -1047,7 +1046,7 @@ export class Scope extends EventEmitter {
 
 
                     // if color is set to invisible, don't display channel
-                    if (this.ChannelInfo[chan].Visible === false)
+                    if (!this.ChannelInfo[chan].Visible)
                         continue;
 
                     const scale_y_axis_to_this_channel: boolean = (chan === this.AutoYAxisAdjustChannel);
@@ -1390,6 +1389,7 @@ export class Scope extends EventEmitter {
 
         const max = this.maxY;
         const min = this.minY;
+        const rescale_factor = .95;
         if ((max != -Number.MAX_VALUE) && (min <= max)) {
             const oh = this.dBounds.height;
             const oy = this.dBounds.y;
@@ -1401,13 +1401,13 @@ export class Scope extends EventEmitter {
                     // fit data window height to data range
                     // range less than 1/4 of window, too small
                     if (range < oh / 4) {
-                        this.DataHeight = this.DataHeight; // * 99 / 100; // range / 4;
-                        //                       this.dBounds.y = this.dBounds.y - this.DataHeight / (99 / 100) / 2;
+                        this.DataHeight *= rescale_factor; // range / 4;
+                        this.dBounds.y -= this.DataHeight / rescale_factor / 2;
                     }
                     // range more than window, too big
                     else if (range > oh) {
-                        this.DataHeight = range + range / 4;
-                        this.dBounds.y = min - range / 8;
+                        this.DataHeight = range + range * rescale_factor;
+                        this.dBounds.y = min - range * rescale_factor / 2;
                     }
                 }
             }
