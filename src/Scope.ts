@@ -136,10 +136,19 @@ export enum MarkerStyle {
 export class Marker extends EventEmitter {
     style: MarkerStyle = MarkerStyle.Filled;
     radius: number = 4;
-    color: string = "rgb(229,205,82)";
     data?: any;
 
     static editDialog: HTMLDialogElement | undefined = undefined;
+
+
+    static ColorMap: { [Key: string] : string } = {};
+
+    static DefaultColor = "rgb(229,205,82)";
+
+    get color(): string {
+
+        return Marker.ColorMap[this.label.split(':')[0]] || Marker.DefaultColor;
+    }
 
     constructor(public readonly time: number, public readonly value: number, public label: string) {
         super();
@@ -207,10 +216,15 @@ export class Channel {
     RenderStyle: RenderStyle = RenderStyle.Line;
     DownSampleAlgorithm? : DownSampleAlgorithm = DownSampleAlgorithm.Decimate;
 }
-/*
-The Scope object depends on a
- */
-export class Scope extends EventEmitter {
+
+export interface iSessionDataSource {
+    Markers: Marker[];
+    Connection?: iDataConnection;
+    Reset: () => void;
+
+}
+
+export class Scope extends EventEmitter implements iSessionDataSource {
 
     private markers_: Marker[] = [];
     private markerUnderCursor: Marker | undefined;
@@ -225,6 +239,8 @@ export class Scope extends EventEmitter {
             if (m.hitTest(this, g_x, g_y))
                 return m;
     }
+
+    public get Markers(): Marker[] { return this.markers_; }
 
     private readonly onScreenCanvas!: HTMLCanvasElement;
 
@@ -314,8 +330,8 @@ export class Scope extends EventEmitter {
     penGridMinor: GDIPlus.Pen;
     penBorder: GDIPlus.Pen;
 
-    brushGridMajor: GDIPlus.SolidBrush;
-    brushGridMinor: GDIPlus.SolidBrush;
+    colorGridMajor: GDIPlus.ColorOrGradient;
+    colorGridMinor: GDIPlus.ColorOrGradient;
 
     // the boundary rectangle of the current data window, in data coordinates
     private dBounds: GDIPlus.Rect;
@@ -332,8 +348,31 @@ export class Scope extends EventEmitter {
     // But they can be hidden
     private timeAxisBounds!: GDIPlus.Rect;
     private yAxisBounds!: GDIPlus.Rect;
-    public TimeAxisVisible = true;
-    public YAxisVisible = true;
+    private time_axis_visible_ = true;
+
+    public get TimeAxisVisible(): boolean {
+        return this.time_axis_visible_;
+    }
+    public set TimeAxisVisible(visible: boolean)  {
+        if (visible != this.time_axis_visible_) {
+            this.time_axis_visible_ = visible;
+            this.Layout();
+        }
+    }
+    private y_axis_visible_ = true;
+
+    public get YAxisVisible(): boolean {
+        return this.y_axis_visible_;
+    }
+    public set YAxisVisible(visible: boolean)  {
+        if (visible != this.y_axis_visible_) {
+            this.y_axis_visible_ = visible;
+            this.Layout();
+        }
+    }
+
+
+
     private ButtonsBounds!: GDIPlus.Rect;
 
     private follow_signal_: boolean = true;
@@ -397,22 +436,17 @@ export class Scope extends EventEmitter {
     public get Connection(): iDataConnection | undefined { return this.conn_; }
 
     public set Connection(conn: iDataConnection | undefined) {
-        const this_ = this;
-
-        const lambda = () => {
-            this_.onData()
-        };
-
-        // if (conn !== this.conn_ && this.conn_ !== undefined)
-        //     this.conn_.off('data', lambda);
+        const self = this;
 
         if (conn !== undefined) {
-            conn.on('data', lambda);
+            conn.on('data', () => {
+                self.onData()
+            });
             this.Fs = conn.Fs;
         }
         this.conn_ = conn;
 
-
+        this.emit('connection', conn);
     }
     private conn_?: iDataConnection;
 
@@ -460,18 +494,16 @@ export class Scope extends EventEmitter {
 
         this.master = null;
 
-        this.penGridMajor = new GDIPlus.Pen({ Color: 'rgba(25,89,250,0.57)'});
-        this.penGridMinor = new GDIPlus.Pen({ Color: 'rgba(68,118,251,0.5)'});
-        this.penBorder = new GDIPlus.Pen({ Color: 'Gray'});
+        this.penGridMajor = new GDIPlus.Pen('rgba(25,89,250,0.57)');
+        this.penGridMinor = new GDIPlus.Pen('rgba(68,118,251,0.5)');
+        this.penBorder = new GDIPlus.Pen('Gray');
 
-        /*
-         * Can't set dash style on gridlines, because dashes scale to data coordinates!
-       */
+
         this.penGridMinor.DashPattern = [1.0, 3.0];
 
 
-        this.brushGridMajor = { Color: 'Black'};
-        this.brushGridMinor =  { Color: 'LightGray'};
+        this.colorGridMajor = 'Black';
+        this.colorGridMinor =  'LightGray';
 
         this.penGridMajor.Width = 1.0;
         this.penGridMinor.Width = 1.0;
@@ -641,10 +673,14 @@ export class Scope extends EventEmitter {
             this.conn_.Reset();
     }
 
+    private Layout() {
+        const container_el = this.onScreenCanvas.parentElement as HTMLDivElement;
+        this.Resize(container_el.clientWidth, container_el.clientHeight);
+    }
+
     public Resize(W: number, H: number): void {
         const  Y_AXIS_WIDTH = 48;
         const  X_AXIS_HEIGHT = 32;
-
 
         // const r = this.onScreenCanvas.parentElement!.getBoundingClientRect();
         // const W = r.width;
@@ -681,7 +717,7 @@ export class Scope extends EventEmitter {
 
             if (this.TimeAxisVisible || this.YAxisVisible) {
 
-                GDIPlus.GCH.FillRectangleCoords(ctx, {Color: this.AxesBackColor}, 0, this.yAxisBounds.height, this.timeAxisBounds.x, ctx.canvas.height);
+                GDIPlus.GCH.FillRectangleCoords(ctx, this.AxesBackColor, 0, this.yAxisBounds.height, this.timeAxisBounds.x, ctx.canvas.height);
 
             }
 
@@ -766,7 +802,7 @@ export class Scope extends EventEmitter {
 
     private RenderButtons(ctx: CanvasRenderingContext2D): void {
         ctx.font = this.ButtonFont;
-        GDIPlus.GCH.FillRectangle(ctx, { Color: this.ButtonBackColor} , this.ButtonsBounds);
+        GDIPlus.GCH.FillRectangle(ctx, this.ButtonBackColor , this.ButtonsBounds);
         const align: GDIPlus.TextAlign = { H:GDIPlus.TextHorizontalAlign.Center, V:GDIPlus.TextVerticalAlign.Middle};
         const textColorAutoScale = (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) ? this.ButtonForeColor : this.ButtonDisabledColor;
         const textColorSignalFollow = this.FollowSignal ? this.ButtonForeColor : this.ButtonDisabledColor;
@@ -782,7 +818,7 @@ export class Scope extends EventEmitter {
         ctx.font = this.AxisFont;
         GDIPlus.GCH.setClip(ctx, this.timeAxisBounds);
 
-        GDIPlus.GCH.FillRectangle(ctx, { Color: this.AxesBackColor} , this.timeAxisBounds);
+        GDIPlus.GCH.FillRectangle(ctx, this.AxesBackColor , this.timeAxisBounds);
         GDIPlus.GCH.SetOrigin(ctx, this.timeAxisBounds.x, this.timeAxisBounds.y);
 
         // find first grid minor point
@@ -822,7 +858,7 @@ export class Scope extends EventEmitter {
         ctx.font = this.AxisFont;
         GDIPlus.GCH.setClip(ctx, this.yAxisBounds);
 
-        GDIPlus.GCH.FillRectangle(ctx, { Color: this.AxesBackColor} , this.yAxisBounds);
+        GDIPlus.GCH.FillRectangle(ctx, this.AxesBackColor , this.yAxisBounds);
 
 
 //        this.yAxis_Recalc();
@@ -862,7 +898,7 @@ export class Scope extends EventEmitter {
 
     private RenderGraphBackground(ctx: CanvasRenderingContext2D) {
 
-        GDIPlus.GCH.FillRectangle(ctx, { Color: this.BackColor }, this.gBounds);
+        GDIPlus.GCH.FillRectangle(ctx, this.BackColor, this.gBounds);
 
     }
 

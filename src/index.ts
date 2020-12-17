@@ -52,6 +52,7 @@ import {SpeechService} from "./SpeechService";
 import {DataConnection} from "./DataConnection";
 import {SigProc} from "./SigProc";
 import EDAAnalyzer = SigProc.EDAAnalyzer;
+import {SessionManagerElement} from "./custom-elements/SessionManagerElement";
 
 
 
@@ -63,7 +64,7 @@ customElements.define('console-element', ConsoleElement);
 customElements.define('scope-element', ScopeElement);
 customElements.define('websocket-element', WebSocketDataConnectionElement);
 customElements.define('facedetect-element', FaceDetectElement);
-
+customElements.define('session-manager-element', SessionManagerElement);
 
 // Disable MS Edge (and probably Chrome) context menus in OSX
 document.addEventListener('contextmenu', event => { event.preventDefault() })
@@ -85,7 +86,7 @@ function switchToPage(page_id: string) {
         (<HTMLButtonElement>page_button).disabled = (page_button.getAttribute('page') === page_id);
 
 }
-switchToPage('page-1');
+switchToPage('page-2');
 
 const c = document.querySelector('console-element') as ConsoleElement;
 c.info('App Loaded.');
@@ -99,6 +100,10 @@ const scopeSCR: Scope = scopeEl_SCR.Scope;
 const scopeSCL: Scope = scopeEl_SCL.Scope;
 
 const edaAnalyzer: EDAAnalyzer = new EDAAnalyzer(websocketEl.Connection);
+
+// TEST TEST
+Marker.ColorMap['Cue'] = "#fff";
+Marker.ColorMap['Test'] = "#ff0000";
 
 scopeSCR.ChannelInfo = [
     {
@@ -184,10 +189,10 @@ startSpeechRecognitionButton.addEventListener('click', async () => {
 
 connectButton.addEventListener('click', async () => {
     // TEST TEST
-    const data = new Uint8Array(6);
-    for (let i = 0; i < 6; ++i)
-        data[i] = i;
-    await save_buffer(data);
+    // const data = new Uint8Array(6);
+    // for (let i = 0; i < 6; ++i)
+    //     data[i] = i;
+    // await save_buffer(data);
 
     const response = await open_hid_device(1240, 61281);
     console.info(JSON.stringify(response, null, 1));
@@ -208,8 +213,10 @@ scopeEl_SCR.Scope.on('marker-added', (marker: Marker) => {
     const timeToString = (t: number) => new Date(t * 1000).toISOString().substring(14,22);
 
     const line_el = c.add({text: `${timeToString(marker.time)} ${marker.label}`, className: 'cue', timeStamp: marker.time });
+    line_el.style.color = marker.color;
     marker.on('label-changed', (new_label: string) => {
         line_el.innerText = `${timeToString(marker.time)} ${new_label}`;
+        line_el.style.color = marker.color;
     })
     line_el.addEventListener('dblclick', () => { marker.editLabel()});
 });

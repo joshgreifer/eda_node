@@ -93,12 +93,12 @@ export class ScopeElement extends HTMLElement {
                 "plot"
                 "labels"
         }
-        
+
         .labels {
             grid-area: labels;
             position: relative;
         }
-        
+
 
         .cue {
             font-family: monospace;
@@ -113,7 +113,7 @@ export class ScopeElement extends HTMLElement {
             color: white;
             background-color: rgb(84,84,84);
         }
-        
+
         .plot {
             grid-area: plot;
          }
@@ -136,12 +136,13 @@ export class ScopeElement extends HTMLElement {
                 const cue_el = <HTMLDivElement>document.createElement('div');
                 marker.on('label-changed', (new_label) => {
                     cue_el.innerHTML = new_label;
+                    cue_el.style.borderLeftColor = marker.color;
                 });
                 cue_el.dataset.time = '' + marker.time;
                 cue_el.classList.add('cue');
                 cue_el.innerHTML = marker.label;
                 cue_el.style.left = t2x(marker.time) + 'px';
-
+                cue_el.style.borderLeftColor = marker.color;
                 labels_el.appendChild(cue_el);
             }
 

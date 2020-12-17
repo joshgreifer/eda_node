@@ -6,7 +6,9 @@ import express, {Express, Request, Response} from "express";
 
 const WebSocket = require('ws');
 
-const rawParser = BodyParser.raw({ type: 'application/octet-stream'});
+// Set limit  https://stackoverflow.com/questions/19917401/error-request-entity-too-large
+// Rough calc:  sample rate 1000, time 3600 secs,  num channels: 1, data size 8 (float64)
+const rawParser = BodyParser.raw({ type: 'application/octet-stream', limit: '50mb'});
 
 import path from "path";
 import {Numpy} from "./Numpy";
@@ -29,12 +31,12 @@ let wss: any  = null;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use( (err: any, req: any, res: any) => {
-    res.set('Content-Type', 'application/json');
-    console.error(err.stack);
-    res.status(500).send(JSON.stringify({ "message":  err.toString(), "stacktrace": err.stack }, null, 2));
-
-});
+// app.use( (err: any, req: any, res: any) => {
+//     res.set('Content-Type', 'application/json');
+//     console.error(err.stack);
+//     res.status(500).send(JSON.stringify({ "message":  err.toString(), "stacktrace": err.stack }, null, 2));
+//
+// });
 
 
 app.get( "/devices", ( req: Request, res: Response ) => {
@@ -53,7 +55,7 @@ app.get('/status', ( req: Request, res: Response ) => {
     res.end();
 });
 
-app.post('/data/:num_channels/:filename', rawParser, ( req: Request, res: Response ) => {
+app.post('/data/:num_channels/:js_dtype/:filename', rawParser, ( req: Request, res: Response ) => {
 
     const num_channels = Number.parseInt(req.params.num_channels);
 
@@ -61,9 +63,10 @@ app.post('/data/:num_channels/:filename', rawParser, ( req: Request, res: Respon
     if (!filename.endsWith('.npy'))
         filename += '.npy'
 
+    const js_dtype = req.params.js_dtype;
     const data = req.body;
 
-    Numpy.save(filename, data, [num_channels, Math.floor(data.length / num_channels)]);
+    Numpy.save_data_with_type(filename, data, num_channels, js_dtype);
 
 
 

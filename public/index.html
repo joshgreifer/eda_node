@@ -53,7 +53,11 @@
 
             width: 200px;
         }
-
+        .settings .section {
+            /*background-color: #151515;*/
+            margin: 5px;
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+        }
         .scopes {
             display: grid;
             grid-template-columns: auto 30vw;
@@ -110,10 +114,10 @@
         <div class="page" id="page-2">
             <div class="scopes">
                 <scope-element height="200px" width="70vw" class="scl"></scope-element>
-                <scope-element height="50vh"  width="70vw" class="scr" labels></scope-element>
+                <scope-element id="scr-scope" height="50vh"  width="70vw" class="scr" labels></scope-element>
                 <console-element></console-element>
                 <div class="control">
-
+                <session-manager-element data-source="scr-scope"></session-manager-element>
                 </div>
             </div>
 

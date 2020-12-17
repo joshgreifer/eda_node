@@ -58,6 +58,8 @@ class DataBuffer {
         return this.nBuffersRead_;
     }
 
+    get Data(): BufferData { return this.buf_.subarray(0, this.sampleCount_ % this.SZ); }
+
     put(new_data: BufferData): void {
         // assert new_data.length % num_channels === 0
         const N = this.buf_.length / 2;
@@ -128,7 +130,7 @@ export interface iDataConnection extends EventEmitter
     Reset(): void
     AddData(data: BufferData): void;
     Data(start_time_seconds: number, duration_seconds: number) : NDArray;
-    DataRaw(start_time_seconds: number, duration_seconds: number) : BufferData;
+    DataRaw() : BufferData;
     TimeToIndex(t: number) : number;
     ValueAtTime(t: number, channel?: number) : number;
 }
@@ -166,9 +168,10 @@ export class DataConnection extends EventEmitter implements iDataConnection {
     {
         return this.buf_.view(start_time_seconds * this.Fs, duration_seconds * this.Fs);
     }
-    DataRaw(start_time_seconds: number, duration_seconds: number) : BufferData
+
+    DataRaw() : BufferData
     {
-        return this.buf_.raw_view(start_time_seconds * this.Fs, duration_seconds * this.Fs);
+        return this.buf_.Data;
     }
 
     FrameOffsetToIndex(frame_offset: number) : number { return this.buf_.index(frame_offset); }

@@ -1,3 +1,5 @@
+import {BufferDataConstructor} from "./DataConnection";
+
 const fs = require('fs');
 
 export namespace Numpy {
@@ -12,7 +14,29 @@ export namespace Numpy {
             a[i] = s.charCodeAt(i) & 0xff;
         return a;
     }
-    export function save(filename: string, data: Data, shape: number[]) {
+
+    export function save_data_with_type(filename: string, data: Data, num_channels: number, js_dtype: string) {
+        const factories : { [Key: string] : BufferDataConstructor } = {
+            'Buffer' : Uint8Array,
+            'Int8Array' : Int8Array,
+            'Uint8Array': Uint8Array,
+            'Int16Array' : Int16Array,
+            'Uint16Array': Uint16Array,
+            'Int32Array': Int32Array,
+            'Uint32Array': Uint32Array,
+            'Float32Array': Float32Array,
+            'Float64Array': Float32Array,
+            'Uint8ClampedArray': Uint8ClampedArray,
+        }
+        const ctor = factories[js_dtype];
+        data = new ctor(data.buffer);
+
+        return save(filename, data, [num_channels, Math.floor(data.length / num_channels)]);
+    }
+
+    function save(filename: string, data: Data, shape: number[]) {
+
+        const js_dtype = Object.getPrototypeOf(data).constructor.name;
 
         const dtypes : { [Key: string] : string } = {
             'Buffer' : 'B',
@@ -23,10 +47,12 @@ export namespace Numpy {
             'Int32Array': 'i4',
             'Uint32Array': 'u4',
             'Float32Array': 'f4',
+            'Float64Array': 'f8',
             'Uint8ClampedArray': 'B1',
-        }
+        };
 
-        const dtype = dtypes[Object.getPrototypeOf(data).constructor.name];
+        const dtype = dtypes[js_dtype];
+
         let shape_str = "(";
         for (const dim of shape)
             shape_str += dim + ", ";

@@ -2,10 +2,8 @@
 /*****************************************************************************
  GDI+
  */
+export type ColorOrGradient = string | CanvasGradient;
 
-export class SolidBrush {
-    Color!: string;
-}
 
 export enum DashStyle {
     Dash,
@@ -16,12 +14,12 @@ export enum DashStyle {
     Custom
 }
 export class Pen {
-    Color: string | CanvasGradient;
+    Color: ColorOrGradient;
     DashPattern?: number[];
     Width: number;
 
-    constructor( brush: SolidBrush) {
-        this.Color = brush.Color;
+    constructor( color: ColorOrGradient) {
+        this.Color = color;
         this.Width = .5;
     }
 
@@ -149,17 +147,17 @@ export class GCH  {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    static FillRectangleCoords(ctx: CanvasRenderingContext2D, brush: SolidBrush, x: number, y: number, w: number, h: number) {
-        ctx.fillStyle = brush.Color;
+    static FillRectangleCoords(ctx: CanvasRenderingContext2D, color: ColorOrGradient, x: number, y: number, w: number, h: number) {
+        ctx.fillStyle = color;
         ctx.fillRect(x, y, w, h);
     }
 
-    static FillRectangle(ctx: CanvasRenderingContext2D, b: SolidBrush, r: Rect) {
-        ctx.fillStyle = b.Color;
+    static FillRectangle(ctx: CanvasRenderingContext2D, color: ColorOrGradient, r: Rect) {
+        ctx.fillStyle = color;
         ctx.fillRect(r.x, r.y, r.width, r.height);
     }
 
-    static FillEllipse(ctx: CanvasRenderingContext2D, color: CanvasGradient | string, cx: number, cy: number, rx: number, ry: number) {
+    static FillEllipse(ctx: CanvasRenderingContext2D, color: ColorOrGradient, cx: number, cy: number, rx: number, ry: number) {
         const context = ctx;
         context.save(); // save state
         context.beginPath();
@@ -174,7 +172,7 @@ export class GCH  {
         context.fill();
     }
 
-    static FillCircle(ctx: CanvasRenderingContext2D, color: CanvasGradient | string, cx: number, cy: number, r: number) {
+    static FillCircle(ctx: CanvasRenderingContext2D, color: ColorOrGradient, cx: number, cy: number, r: number) {
         const context = ctx;
         context.save(); // save state
         context.beginPath();
@@ -188,7 +186,7 @@ export class GCH  {
         context.fillStyle = color;
         context.fill();
     }
-    static DrawCircle(ctx: CanvasRenderingContext2D, color: CanvasGradient | string, cx: number, cy: number, r: number) {
+    static DrawCircle(ctx: CanvasRenderingContext2D, color: ColorOrGradient, cx: number, cy: number, r: number) {
         const context = ctx;
         context.save(); // save state
         context.beginPath();
@@ -219,7 +217,7 @@ export class GCH  {
         gc.strokeRect(r.x, r.y, r.width, r.height);
     }
 
-    static DrawString(ctx: CanvasRenderingContext2D, text: string,  color: string | CanvasGradient, x: number, y: number, alignment: TextAlign) {
+    static DrawString(ctx: CanvasRenderingContext2D, text: string, color: ColorOrGradient, x: number, y: number, alignment: TextAlign) {
         if (alignment === undefined) {
             alignment = { H: TextHorizontalAlign.Left, V:TextVerticalAlign.Bottom };
         } else {
