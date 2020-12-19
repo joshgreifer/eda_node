@@ -9,6 +9,7 @@ class Session {
     private source_: iSessionDataSource;
 
     public get Name(): string { return this.name_; }
+    public set Name(name: string) { this.name_ = name; }
 
    async Save() {
         if (this.source_.Connection)
@@ -83,6 +84,7 @@ export class SessionManagerElement extends HTMLElement {
             <div class="section"><label for="session-name">Name</label><input id="session-name" type="text"></div>
             <div class="section"><label for="btn-session-start-stop">Recording</label><button id="btn-session-start-stop">Start</button></div>       
             <div class="section"><label for="btn-session-save">Save</label><button id="btn-session-save">Save</button></div>       
+            <div class="section"><label for="btn-session-reset">Save</label><button id="btn-session-reset">Reset</button></div>       
         `;
         el.className = 'private-style1';
         // noinspection CssInvalidFunction,CssInvalidPropertyValue
@@ -114,8 +116,19 @@ export class SessionManagerElement extends HTMLElement {
 
         const session_name_el = el.querySelector('#session-name') as HTMLInputElement;
         session_name_el.value = SessionManagerElement.generate_name();
-        const session_name = session_name_el.value;
-        this.NewSession(session_name);
+        session_name_el.oninput = () => {
+            if (this.session_)
+                this.session_.Name = session_name_el.value;
+        };
+
+
+        const session_reset_el = el.querySelector('#btn-session-reset') as HTMLInputElement;
+        session_reset_el.onclick = async () => {
+            if (this.session_)
+                await this.session_.Reset();
+        };
+
+        this.NewSession(session_name_el.value);
 
     }
 

@@ -83,7 +83,6 @@ export class WebSocketDataConnection extends DataConnection  {
         const ws = new WebSocket(this.url_);
         ws.binaryType = 'arraybuffer';
 
-
         ws.onopen = (ev: Event) => {
             // console.log(ev);
             this.startPerformanceMeasurement();

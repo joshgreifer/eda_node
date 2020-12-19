@@ -16,7 +16,8 @@ export namespace Numpy {
     }
 
     export function save_data_with_type(filename: string, data: Data, num_channels: number, js_dtype: string) {
-        const factories : { [Key: string] : BufferDataConstructor } = {
+
+        const view_factories : { [Key: string] : BufferDataConstructor } = {
             'Buffer' : Uint8Array,
             'Int8Array' : Int8Array,
             'Uint8Array': Uint8Array,
@@ -25,13 +26,13 @@ export namespace Numpy {
             'Int32Array': Int32Array,
             'Uint32Array': Uint32Array,
             'Float32Array': Float32Array,
-            'Float64Array': Float32Array,
+            'Float64Array': Float64Array,
             'Uint8ClampedArray': Uint8ClampedArray,
         }
-        const ctor = factories[js_dtype];
-        data = new ctor(data.buffer);
+        const view_factory = view_factories[js_dtype];
+        const data_view = new view_factory(data.buffer);
 
-        return save(filename, data, [num_channels, Math.floor(data.length / num_channels)]);
+        return save(filename, data_view, [Math.floor(data_view.length / num_channels), num_channels]);
     }
 
     function save(filename: string, data: Data, shape: number[]) {

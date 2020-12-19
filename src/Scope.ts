@@ -1448,10 +1448,10 @@ export class Scope extends EventEmitter implements iSessionDataSource {
                 }
             }
 
-
-            // range is ok, but data offset might be too low or high
-            if ((min < this.dBounds.y) || (max > this.dBounds.y + this.dBounds.height))
-                this.dBounds.y = min - (this.dBounds.height - range) / 2;
+            if (this.AutoYAxisAdjustBehaviour !== AutoYAxisAdjustBehaviour.None)
+                // range is ok, but data offset might be too low or high
+                if ((min < this.dBounds.y) || (max > this.dBounds.y + this.dBounds.height))
+                    this.dBounds.y = min - (this.dBounds.height - range) / 2;
 
             return ((oh != this.dBounds.height) || (oy != this.dBounds.y));
 
