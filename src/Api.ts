@@ -1,7 +1,8 @@
 import {BufferData, iDataConnection} from "./DataConnection";
+import {HidDeviceStatus} from "./HidDeviceStatus";
 
 
-export async function open_hid_device(vid: number, pid:number): Promise<any> {
+export async function open_hid_device(vid: number, pid:number): Promise<HidDeviceStatus> {
 
 
     const api_response = await fetch(`/open/${vid}/${pid}`, {
@@ -14,7 +15,7 @@ export async function open_hid_device(vid: number, pid:number): Promise<any> {
     return await api_response.json();
 }
 
-export async function get_server_status(): Promise<{ 'message': string, 'websocket': string, 'device': any }> {
+export async function get_server_status(): Promise<HidDeviceStatus> {
     const api_response = await fetch(`/status`, {
         method: 'get',
         headers: {

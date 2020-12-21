@@ -160,7 +160,7 @@ export class DataConnection extends EventEmitter implements iDataConnection {
 
     Reset() {
         this.buf_.reset();
-        this.emit('data', null);
+        this.emit('reset');
         this.startPerformanceMeasurement();
     }
 

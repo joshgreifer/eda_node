@@ -89,7 +89,7 @@
 <div class="app-container">
     <div class="header">
         <span>V 1.0</span>
-        <button id="connect-button">Connect to EDA</button>
+<!--        <button id="connect-button">Connect to EDA</button>-->
         <button class="page-switcher" page="page-1">Options</button>
         <button class="page-switcher" page="page-2">EDA Plot</button>
         <button class="page-switcher" page="page-3">Face Detection</button>
@@ -98,6 +98,7 @@
 
         <div class="page" id="page-1">
             <div class="settings">
+                <h1>General Settings</h1>
                 <ul>
                     <li>
                         <label for="speech-sdk-password-input">Speech Recognizer Password: </label>
@@ -109,6 +110,33 @@
 
 
             </div>
+            <div class="settings">
+                <h1>Plot Settings</h1>
+                <ul>
+                    <li>
+                        <label>Follow Signal: </label>
+                        <input id="scope-signal-follow-behaviour-scroll" name="scope-signal-follow-behaviour" type="radio" value="0"><span> Scrolling window </span>
+                        <input id="scope-signal-follow-behaviour-paginate" name="scope-signal-follow-behaviour" type="radio"  value="1"><span> Paginating window </span>
+                        <input id="scope-signal-follow-behaviour-fit" name="scope-signal-follow-behaviour" type="radio"  value="2"><span> Rescale time axis to signal </span>
+                    </li>
+
+                </ul>
+
+                <h1>Marker Settings</h1>
+                <ul>
+                    <li><scope-marker-editor-element label="0" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="1" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="2" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="3" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="4" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="5" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="6" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="7" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="8" color="#ff1c39" /></li>
+                    <li><scope-marker-editor-element label="9" color="#ff1c39" /></li>
+                </ul>
+
+            </div>
 
         </div>
         <div class="page" id="page-2">
@@ -118,6 +146,10 @@
                 <console-element></console-element>
                 <div class="control">
                 <session-manager-element data-source="scr-scope"></session-manager-element>
+
+                        <scope-marker-editor-element label="Cue" color="#0000ff" />
+
+                   <scope-marker-editor-element label="SCR" color="#ffff00" />
                 </div>
             </div>
 

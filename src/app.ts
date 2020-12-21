@@ -3,6 +3,9 @@ import * as HID from "node-hid";
 import * as BodyParser from "body-parser";
 
 import express, {Express, Request, Response} from "express";
+import path from "path";
+import {Numpy} from "./Numpy";
+import {HidDeviceConnectionStatusCode, HidDeviceStatus} from "./HidDeviceStatus";
 
 const WebSocket = require('ws');
 
@@ -10,20 +13,12 @@ const WebSocket = require('ws');
 // Rough calc:  sample rate 1000, time 3600 secs,  num channels: 1, data size 8 (float64)
 const rawParser = BodyParser.raw({ type: 'application/octet-stream', limit: '50mb'});
 
-import path from "path";
-import {Numpy} from "./Numpy";
-
 const app: Express = express();
 const port = 3050; // default port to listen
 
-let status: {
-    message: string;
-    device: any;
-    websocket: string;
-} = {
-    message: "Not connected.",
-    device: {},
-    websocket: ""
+let status: HidDeviceStatus = {
+    code: HidDeviceConnectionStatusCode.DISCONNECTED,
+    message: "No device connected.",
 };
 
 const wss_port = 1102;
@@ -95,32 +90,35 @@ app.get('/open/:vid/:pid', ( req: Request, res: Response ) => {
 
         try {
             const device = new HID.HID(deviceInfo.path as string);
-            status.message = "Connected.";
-            status.device = device;
 
             if (wss)
                 wss.close();
             wss = new WebSocket.Server({port: wss_port});
             wss.on('connection', (ws: WebSocket) => {
                 device.on('error', (error) => {
+                    status.code = HidDeviceConnectionStatusCode.DISCONNECTED;
                     status.message = error.toString();
                 });
                 device.on('data', (data) => {
                     ws.send(data);
                 });
             });
+
+            status.websocket = "ws://0.0.0.0:1102";
+            status.device = deviceInfo;
+            status.message = "Connected.";
+            status.code = HidDeviceConnectionStatusCode.CONNECTED;
+
+            res.write(JSON.stringify(status, null, 2));
         } catch (e) {
             status.message = e.toString();
             res.status(400).send(JSON.stringify(status, null, 2));
         }
 
-        res.write(JSON.stringify({
-            "websocket" : "ws://0.0.0.0:1102",
-            'status' : "opened device.",
-            'device' : deviceInfo
-        }, null, 2));
+
 
     } else {
+        status.code = HidDeviceConnectionStatusCode.DISCONNECTED;
         status.message = `Device with vendor id 0x${vid.toString(16)} and product id 0x${pid.toString(16)} not found`;
         res.status(404).send(JSON.stringify(status, null, 2));
     }

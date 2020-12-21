@@ -47,13 +47,13 @@ import {
     Scope,
     SignalFollowBehaviour
 } from "./Scope";
-import {get_server_status, open_hid_device, save_buffer} from "./Api";
+import {get_server_status, open_hid_device} from "./Api";
 import {SpeechService} from "./SpeechService";
-import {DataConnection} from "./DataConnection";
 import {SigProc} from "./SigProc";
-import EDAAnalyzer = SigProc.EDAAnalyzer;
 import {SessionManagerElement} from "./custom-elements/SessionManagerElement";
-
+import {HidDeviceConnectionStatusCode} from "./HidDeviceStatus";
+import EDAAnalyzer = SigProc.EDAAnalyzer;
+import {ScopeMarkerEditorElement} from "./custom-elements/ScopeMarkerEditor";
 
 
 AddAlgorithms(Array.prototype);
@@ -65,6 +65,8 @@ customElements.define('scope-element', ScopeElement);
 customElements.define('websocket-element', WebSocketDataConnectionElement);
 customElements.define('facedetect-element', FaceDetectElement);
 customElements.define('session-manager-element', SessionManagerElement);
+customElements.define('scope-marker-editor-element', ScopeMarkerEditorElement);
+
 
 // Disable MS Edge (and probably Chrome) context menus in OSX
 document.addEventListener('contextmenu', event => { event.preventDefault() })
@@ -102,7 +104,7 @@ const scopeSCL: Scope = scopeEl_SCL.Scope;
 const edaAnalyzer: EDAAnalyzer = new EDAAnalyzer(websocketEl.Connection);
 
 // TEST TEST
-Marker.ColorMap['Cue'] = "#fff";
+Marker.ColorMap['Cue'] = "#ffffff";
 Marker.ColorMap['Test'] = "#ff0000";
 
 scopeSCR.ChannelInfo = [
@@ -139,6 +141,7 @@ for (const scope of [scopeSCR, scopeSCL]) {
     scope.SignalFollowBehaviour = SignalFollowBehaviour.Scroll;
     scope.AutoYAxisAdjustChannel = 0;
     scope.DataHeight = 1000;
+    scope.DataWidth = 30;
 }
 
 scopeSCR.Connection = edaAnalyzer.SCR;
@@ -151,17 +154,21 @@ scopeSCL.BackColor = '#001414'
 
 console.info('Connected scope to websocket.');
 
-const connectButton = document.querySelector('#connect-button') as HTMLButtonElement;
+// const connectButton = document.querySelector('#connect-button') as HTMLButtonElement;
 const startSpeechRecognitionButton = document.querySelector('#start-speech-recognition-button') as HTMLButtonElement;
 const statusIndicator = document.querySelector('#status-indicator') as HTMLSpanElement;
-
 const passwordElement = document.querySelector('#speech-sdk-password-input') as HTMLInputElement;
+const scopeSignalFollowBehaviourRadioButtons = document.querySelectorAll('input[name="scope-signal-follow-behaviour"]');
 
 passwordElement.addEventListener('input', ()=> {
-    connectButton.disabled = !passwordElement.value;
+    // connectButton.disabled = !passwordElement.value;
 
 });
 
+
+for (const el of scopeSignalFollowBehaviourRadioButtons) {
+    el.addEventListener('change', () => { scopeSCR.SignalFollowBehaviour = Number.parseInt((<HTMLInputElement>el).value)});
+}
 startSpeechRecognitionButton.addEventListener('click', async () => {
     const password = passwordElement.value;
     if (password !== "") {
@@ -187,19 +194,6 @@ startSpeechRecognitionButton.addEventListener('click', async () => {
     }
 });
 
-connectButton.addEventListener('click', async () => {
-    // TEST TEST
-    // const data = new Uint8Array(6);
-    // for (let i = 0; i < 6; ++i)
-    //     data[i] = i;
-    // await save_buffer(data);
-
-    const response = await open_hid_device(1240, 61281);
-    console.info(JSON.stringify(response, null, 1));
-});
-
-// scopeEl_SCR.AddCue('test 5s', 5.0);
-// c.add({ text: 'test 5s', className: 'cue', timeStamp: 5.0});
 
 c.Events.on('console-click', (el: HTMLDivElement) => {
     if (['cue', 'recognized'].includes(el.className)) {
@@ -221,6 +215,20 @@ scopeEl_SCR.Scope.on('marker-added', (marker: Marker) => {
     line_el.addEventListener('dblclick', () => { marker.editLabel()});
 });
 
+
+const scopeMarkerEditorEls =  document.querySelectorAll('scope-marker-editor-element');
+
+for (const el of scopeMarkerEditorEls) {
+    el.addEventListener('change', () => {
+        Marker.ColorMap = {};
+
+        for (const el of scopeMarkerEditorEls) {
+            const label = el.getAttribute('label') as string;
+            const color = el.getAttribute('color') as string;
+            Marker.ColorMap[label] = color;
+        }
+    });
+}
 
 window.addEventListener('keyup', (evt: KeyboardEvent) => {
     const code = evt.code;
@@ -246,6 +254,9 @@ window.setInterval(() => {
     (async () => {
         const status = await get_server_status();
         statusIndicator.innerText = status.message;
+        if (status.code === HidDeviceConnectionStatusCode.DISCONNECTED) {
+            await open_hid_device(1240, 61281);
+        }
     } )();
 
 }, 2000);

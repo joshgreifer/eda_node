@@ -204,7 +204,6 @@ export enum SignalFollowBehaviour {
 }
 
 export enum AutoYAxisAdjustBehaviour {
-    None,
     EnsureAllSamplesVisible,
     EnsureMostRecentSampleVisible
 }
@@ -376,6 +375,7 @@ export class Scope extends EventEmitter implements iSessionDataSource {
     private ButtonsBounds!: GDIPlus.Rect;
 
     private follow_signal_: boolean = true;
+    private adjust_y_axis: boolean = true;
 
     public get FollowSignal(): boolean {
         return this.follow_signal_;
@@ -392,10 +392,44 @@ export class Scope extends EventEmitter implements iSessionDataSource {
         for (let slave of this.slaves)
             slave.follow_signal_ = follow_signal;
 
-        this.follow_signal_ = follow_signal;
     }
 
-    public SignalFollowBehaviour: SignalFollowBehaviour = SignalFollowBehaviour.Paginate;
+    public get AutoScaleY(): boolean {
+        return this.adjust_y_axis;
+    }
+
+    public set AutoScaleY(adjust_y_axis: boolean) {
+
+        if (this.master != null) {
+            this.master.AutoScaleY = adjust_y_axis;
+            return;
+        }
+
+        this.adjust_y_axis = adjust_y_axis;
+        for (let slave of this.slaves)
+            slave.adjust_y_axis = adjust_y_axis;
+
+    }
+
+    private signal_follow_behaviour: SignalFollowBehaviour = SignalFollowBehaviour.Paginate;
+
+    public get SignalFollowBehaviour(): SignalFollowBehaviour {
+        return this.signal_follow_behaviour;
+    }
+
+    public set SignalFollowBehaviour(signal_follow_behaviour: SignalFollowBehaviour) {
+
+        if (this.master != null) {
+            this.master.SignalFollowBehaviour = signal_follow_behaviour;
+            return;
+        }
+
+        this.signal_follow_behaviour = signal_follow_behaviour;
+        for (let slave of this.slaves)
+            slave.signal_follow_behaviour = signal_follow_behaviour;
+
+    }
+
     public AutoYAxisAdjustBehaviour : AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
 
     public AutoYAxisAdjustChannel = -1; // no channel
@@ -430,6 +464,12 @@ export class Scope extends EventEmitter implements iSessionDataSource {
                 case SignalFollowBehaviour.Paginate:
                     if (this.dataTime > this.dBounds.right)
                         this.DataX = this.dBounds.right;
+                    break;
+                case SignalFollowBehaviour.Fit:
+                    this.DataX = 0;
+                    this.DataWidth = this.dataTime;
+                    break;
+                default:
             }
 
     }
@@ -519,8 +559,8 @@ export class Scope extends EventEmitter implements iSessionDataSource {
         const getCoords = (e: TouchEvent | MouseEvent): number[] => {
             const r  = this.onScreenCanvas.getBoundingClientRect();
             return ("touches" in e) ?
-                    [e.touches[0].clientX - r.left, e.touches[0].clientY - r.top] :
-                    [e.clientX - r.left, e.clientY - r.top]
+                [e.touches[0].clientX - r.left, e.touches[0].clientY - r.top] :
+                [e.clientX - r.left, e.clientY - r.top]
         }
 
         // Set mouse handlers
@@ -575,7 +615,7 @@ export class Scope extends EventEmitter implements iSessionDataSource {
         this.onScreenCanvas.ontouchend = this.onScreenCanvas.onmouseup = (e: TouchEvent | MouseEvent) => {
             e.preventDefault();
             if (this.captureArea == Area.AutoScaleButton)
-                this.AutoYAxisAdjustBehaviour = (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) ? AutoYAxisAdjustBehaviour.None: AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
+                this.AutoScaleY = !this.AutoScaleY;
 
             else if (this.captureArea == Area.FollowSignalButton)
                 this.FollowSignal = !this.FollowSignal;
@@ -671,6 +711,8 @@ export class Scope extends EventEmitter implements iSessionDataSource {
         this.DataX = 0;
         if (this.conn_)
             this.conn_.Reset();
+        for (const slave of this.slaves)
+            slave.Reset();
     }
 
     private Layout() {
@@ -804,7 +846,7 @@ export class Scope extends EventEmitter implements iSessionDataSource {
         ctx.font = this.ButtonFont;
         GDIPlus.GCH.FillRectangle(ctx, this.ButtonBackColor , this.ButtonsBounds);
         const align: GDIPlus.TextAlign = { H:GDIPlus.TextHorizontalAlign.Center, V:GDIPlus.TextVerticalAlign.Middle};
-        const textColorAutoScale = (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) ? this.ButtonForeColor : this.ButtonDisabledColor;
+        const textColorAutoScale = this.AutoScaleY ? this.ButtonForeColor : this.ButtonDisabledColor;
         const textColorSignalFollow = this.FollowSignal ? this.ButtonForeColor : this.ButtonDisabledColor;
         GDIPlus.GCH.DrawString(ctx,"↕" , textColorAutoScale, this.ButtonsBounds.x + this.ButtonsBounds.width/4 , this.ButtonsBounds.y + this.ButtonsBounds.height/2, align);
         GDIPlus.GCH.DrawString(ctx,"→" , textColorSignalFollow, this.ButtonsBounds.x + 3 * this.ButtonsBounds.width/4 , this.ButtonsBounds.y + this.ButtonsBounds.height/2, align);
@@ -1422,6 +1464,8 @@ export class Scope extends EventEmitter implements iSessionDataSource {
     // return true if y scale needed to be adjusted
     // Adjust the YAxis to honour the scope_audio's AutoYAxisAdjustBehaviour
     private AdjustYAxis(): boolean {
+        if (!this.AutoScaleY)
+            return false;
 
         const max = this.maxY;
         const min = this.minY;
@@ -1448,10 +1492,10 @@ export class Scope extends EventEmitter implements iSessionDataSource {
                 }
             }
 
-            if (this.AutoYAxisAdjustBehaviour !== AutoYAxisAdjustBehaviour.None)
-                // range is ok, but data offset might be too low or high
-                if ((min < this.dBounds.y) || (max > this.dBounds.y + this.dBounds.height))
-                    this.dBounds.y = min - (this.dBounds.height - range) / 2;
+
+            // range is ok, but data offset might be too low or high
+            if ((min < this.dBounds.y) || (max > this.dBounds.y + this.dBounds.height))
+                this.dBounds.y = min - (this.dBounds.height - range) / 2;
 
             return ((oh != this.dBounds.height) || (oy != this.dBounds.y));
 
@@ -1471,20 +1515,19 @@ export class Scope extends EventEmitter implements iSessionDataSource {
             return Area.TimeAxis;
         if (this.yAxisBounds.Contains(X, Y))
             return Area.YAxis;
-          return Area.None;
+        return Area.None;
 
     }
-
 
     graph_Zoom(x: number, y: number) {
         const SLOP = 1; // cursor can move 1 pixel between button down and button up before considered to be dragging
         const GRAPH_ZOOM_RATIO = 20.0;
 
-        this.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.None;  // Stop automatically adjusting Y axis
         const delta_x = this.dragPoint.x - x;
         const delta_y = this.dragPoint.y - y;
 
         if (!(delta_x <= SLOP && delta_x >= -SLOP && delta_y <= SLOP && delta_y >= -SLOP)) {
+
             this.dragPoint.x = x;
             this.dragPoint.y = y;
 
@@ -1492,20 +1535,21 @@ export class Scope extends EventEmitter implements iSessionDataSource {
             const mag_dy = delta_y < 0 ? -delta_y : delta_y;
             const sgn_dx = delta_x < 0 ? 1 : -1;
             const sgn_dy = delta_y < 0 ? -1 : 1;
+
             if (mag_dx > mag_dy) {
+                this.FollowSignal = false;  // Stop automatically adjusting time axis
                 const fact = (GRAPH_ZOOM_RATIO - sgn_dx) / GRAPH_ZOOM_RATIO;
                 this.onScreenCanvas.style.cursor = 'col-resize';
 
                 this.DataWidth *= fact;
                 this.DataX += this.DataWidth * (1 / fact - 1) * this.dragStartPoint.x / this.gBounds.width;
 
-            }
-            else {
+            } else {
+                this.AutoScaleY = false;  // Stop automatically adjusting Y axis
                 const fact = (GRAPH_ZOOM_RATIO - sgn_dy) / GRAPH_ZOOM_RATIO;
                 this.onScreenCanvas.style.cursor = 'row-resize';
                 this.DataHeight *= fact;
                 this.DataY += this.DataHeight * (1 / fact - 1) * 0.5 /* (1 - dragStartPoint.Y / gBounds.Height) */;
-
             }
 
         }
