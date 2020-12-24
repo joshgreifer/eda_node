@@ -155,16 +155,22 @@ scopeSCL.BackColor = '#001414'
 console.info('Connected scope to websocket.');
 
 // const connectButton = document.querySelector('#connect-button') as HTMLButtonElement;
+const enableGazeDetectionEl = document.querySelector('#enable-gaze-detection') as HTMLInputElement;
+const FaceRecognitionEl = document.querySelector('facedetect-element') as FaceDetectElement;
+
 const startSpeechRecognitionButton = document.querySelector('#start-speech-recognition-button') as HTMLButtonElement;
 const statusIndicator = document.querySelector('#status-indicator') as HTMLSpanElement;
 const passwordElement = document.querySelector('#speech-sdk-password-input') as HTMLInputElement;
 const scopeSignalFollowBehaviourRadioButtons = document.querySelectorAll('input[name="scope-signal-follow-behaviour"]');
 
 passwordElement.addEventListener('input', ()=> {
-    // connectButton.disabled = !passwordElement.value;
+    startSpeechRecognitionButton.disabled = !passwordElement.value;
 
 });
 
+enableGazeDetectionEl.onchange = () => {
+    FaceRecognitionEl.setAttribute('enabled', enableGazeDetectionEl.checked ? 'true' : 'false');
+};
 
 for (const el of scopeSignalFollowBehaviourRadioButtons) {
     el.addEventListener('change', () => { scopeSCR.SignalFollowBehaviour = Number.parseInt((<HTMLInputElement>el).value)});
@@ -175,14 +181,17 @@ startSpeechRecognitionButton.addEventListener('click', async () => {
         const speechService = new SpeechService(password, true, false);
         await speechService.StartContinuousRecognition();
         speechService.on('recognized', (text: string) => {
-            const timeStamp: number = scopeSCR.Connection ? scopeSCR.Connection.CurrentTimeSecs : 0;
-            c.add({
-                text: text,
-                className: 'recognized',
-                replaceClassName: 'recognizing',
-                isContinuation: true,
-                timeStamp: timeStamp
-            });
+            if (scopeSCR.Connection) {
+                let t: number = 0;
+                let v: number = 0;
+                t = scopeSCR.Connection.CurrentTimeSecs - SpeechService.LatencySeconds;
+                if (t < 0)
+                    t = 0;
+                v = scopeSCR.Connection.ValueAtTime(t);
+                const marker = new Marker(t, v, text);
+                scopeEl_SCR.Scope.AddMarker(marker);
+            }
+
         });
         speechService.on('recognizing', (text: string) => {
             c.add({text: text, className: 'recognizing', isContinuation: true})
@@ -206,13 +215,19 @@ c.Events.on('console-click', (el: HTMLDivElement) => {
 scopeEl_SCR.Scope.on('marker-added', (marker: Marker) => {
     const timeToString = (t: number) => new Date(t * 1000).toISOString().substring(14,22);
 
-    const line_el = c.add({text: `${timeToString(marker.time)} ${marker.label}`, className: 'cue', timeStamp: marker.time });
+    const line_el = c.add({text: `${timeToString(marker.time)} ${marker.label}`, className: 'cue', timeStamp: marker.time, isContinuation: true, replaceClassName: 'recognizing' });
     line_el.style.color = marker.color;
     marker.on('label-changed', (new_label: string) => {
         line_el.innerText = `${timeToString(marker.time)} ${new_label}`;
         line_el.style.color = marker.color;
     })
     line_el.addEventListener('dblclick', () => { marker.editLabel()});
+});
+
+scopeEl_SCR.Scope.on('reset', () => { c.clear(); });
+
+scopeEl_SCR.Scope.on('size', (size: { width: number, height: number}) => {
+    c.style.height = size.height + 'px';
 });
 
 
@@ -227,6 +242,9 @@ for (const el of scopeMarkerEditorEls) {
             const color = el.getAttribute('color') as string;
             Marker.ColorMap[label] = color;
         }
+        // Update all markers in case color has changed
+        for (const marker of scopeSCR.Markers)
+            marker.emit('label-changed', marker.label);
     });
 }
 

@@ -61,13 +61,8 @@ export class FaceDetectElement extends HTMLElement {
         return this.cv_ready;
     }
 
-    private get Enabled() : Promise<void> {
-
-        const enabled: boolean = this.hasAttribute('enabled') ? (this.getAttribute('enabled') as string).toLocaleLowerCase() === 'true': false;
-        return new Promise<void>((resolve) => {
-            if (enabled)
-                resolve();
-        });
+    private get Enabled() : boolean {
+        return  this.hasAttribute('enabled') ? (this.getAttribute('enabled') as string).toLocaleLowerCase() === 'true': false;
     }
 
     async init(video: HTMLVideoElement, canvas: HTMLCanvasElement) {
@@ -80,7 +75,7 @@ export class FaceDetectElement extends HTMLElement {
         let eyes = new cv.RectVector();
         let face_classifier = new cv.CascadeClassifier();
         let eye_classifier = new cv.CascadeClassifier();
-        const FPS = 10;
+        const FPS = 5;
 
 
         const constraints = {
@@ -96,47 +91,51 @@ export class FaceDetectElement extends HTMLElement {
             .then( async (stream) => {
                 video.srcObject = stream;
                 const processVideo = async () => {
-                    await self.Enabled;
-                    try {
-                        if (!stream) {
-                            // clean and stop.
-                            src.delete();
-                            dst.delete();
-                            gray.delete();
-                            faces.delete();
-                            face_classifier.delete();
-                            return;
-                        }
-                        const begin = Date.now();
-                        // start processing.
-                        cap.read(src);
-                        src.copyTo(dst);
-                        cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
-                        // detect faces.
-                        face_classifier.detectMultiScale(gray, faces, 1.1, 3, 0);
-                        self.face_count_ = faces.size();
-                        // draw faces.
-                        for (let i = 0; i < self.face_count_; ++i) {
-                            let face = faces.get(i);
-                            let point1 = new cv.Point(face.x, face.y);
-                            let point2 = new cv.Point(face.x + face.width, face.y + face.height);
-                            cv.rectangle(dst, point1, point2, [255, 0, 0, 255]);
-                        }
-                        eye_classifier.detectMultiScale(gray, eyes, 1.1, 3, 0);
-                        self.eyes_count_ = eyes.size();
-                        for (let i = 0; i < self.eyes_count_; ++i) {
-                            let eye = eyes.get(i);
-                            let point1 = new cv.Point(eye.x, eye.y);
-                            let point2 = new cv.Point(eye.x + eye.width, eye.y + eye.height);
-                            cv.rectangle(dst, point1, point2, [255, 255, 0, 255]);
-                        }
+                    if (!self.Enabled)
+                        setTimeout(processVideo, 500);
+                    else {
+                        try {
+                            // if (!stream) {
+                            //     // clean and stop.
+                            //     src.delete();
+                            //     dst.delete();
+                            //     gray.delete();
+                            //     faces.delete();
+                            //     face_classifier.delete();
+                            //     return;
+                            // }
+                            const begin = Date.now();
+                            // start processing.
+                            cap.read(src);
+                            src.copyTo(dst);
+                            cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
+                            // detect faces.
+                            face_classifier.detectMultiScale(gray, faces, 1.1, 3, 0);
+                            self.face_count_ = faces.size();
+                            // draw faces.
+                            for (let i = 0; i < self.face_count_; ++i) {
+                                let face = faces.get(i);
+                                let point1 = new cv.Point(face.x, face.y);
+                                let point2 = new cv.Point(face.x + face.width, face.y + face.height);
+                                cv.rectangle(dst, point1, point2, [255, 0, 0, 255]);
+                            }
+                            eye_classifier.detectMultiScale(gray, eyes, 1.1, 3, 0);
+                            self.eyes_count_ = eyes.size();
+                            for (let i = 0; i < self.eyes_count_; ++i) {
+                                let eye = eyes.get(i);
+                                let point1 = new cv.Point(eye.x, eye.y);
+                                let point2 = new cv.Point(eye.x + eye.width, eye.y + eye.height);
+                                cv.rectangle(dst, point1, point2, [255, 255, 0, 255]);
+                            }
 
-                        cv.imshow(canvas, dst);
-                        // schedule the next one.
-                        const delay = 1000 / FPS - (Date.now() - begin);
-                        setTimeout(processVideo, delay);
-                    } catch (err) {
-                        cvUtils.cvError(err);
+                            cv.imshow(canvas, dst);
+                            // schedule the next one.
+                            const delay = 1000 / FPS - (Date.now() - begin);
+                            setTimeout(processVideo, delay);
+
+                        } catch (err) {
+                            cvUtils.cvError(err);
+                        }
                     }
                 };
 

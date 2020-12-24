@@ -6,13 +6,14 @@ import express, {Express, Request, Response} from "express";
 import path from "path";
 import {Numpy} from "./Numpy";
 import {HidDeviceConnectionStatusCode, HidDeviceStatus} from "./HidDeviceStatus";
+import * as fs from "fs";
 
 const WebSocket = require('ws');
 
 // Set limit  https://stackoverflow.com/questions/19917401/error-request-entity-too-large
 // Rough calc:  sample rate 1000, time 3600 secs,  num channels: 1, data size 8 (float64)
 const rawParser = BodyParser.raw({ type: 'application/octet-stream', limit: '50mb'});
-
+const jsonParser = BodyParser.json({type: 'application/json', limit: '50mb'})
 const app: Express = express();
 const port = 3050; // default port to listen
 
@@ -42,12 +43,52 @@ app.get( "/devices", ( req: Request, res: Response ) => {
     res.end();
 });
 
-
-
 app.get('/status', ( req: Request, res: Response ) => {
     res.set('Content-Type', 'application/json');
     res.write(JSON.stringify(status, null, 2));
     res.end();
+});
+
+app.post('/save/:filename', jsonParser, ( req: Request, res: Response ) => {
+    res.set('Content-Type', 'application/json');
+    try {
+        let filename = req.params.filename;
+        if (!filename.endsWith('.json'))
+            filename += '.json'
+        const obj = req.body;
+        const fd = fs.openSync(filename, "w");
+        fs.writeSync(fd, JSON.stringify(obj));
+        fs.closeSync(fd);
+        res.write(JSON.stringify({
+            status: 'Success',
+            filename: filename
+        }, null, 2));
+        res.end();
+    } catch (e) {
+        res.status(500).send(JSON.stringify({ status: 'Error', details: e.toString() }, null, 2));
+    }
+
+
+});
+
+app.get('/load/:filename', ( req: Request, res: Response ) => {
+    res.set('Content-Type', 'application/json');
+    try {
+        let filename = req.params.filename;
+        if (!filename.endsWith('.json'))
+            filename += '.json'
+        const data = JSON.parse(fs.readFileSync(filename, 'utf-8'));
+        res.write(JSON.stringify({
+            data: data,
+            status: 'Success',
+            filename: filename
+        }, null, 2));
+        res.end();
+    } catch (e) {
+        res.status(500).send(JSON.stringify({ status: 'Error', details: e.toString() }, null, 2));
+    }
+
+
 });
 
 app.post('/data/:num_channels/:js_dtype/:filename', rawParser, ( req: Request, res: Response ) => {

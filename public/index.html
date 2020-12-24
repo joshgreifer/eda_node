@@ -4,22 +4,32 @@
     <meta charset="UTF-8">
     <title>HID Device reader</title>
     <style>
+        :root {
+            /*  Globally used vars */
+            --theme-background-image: linear-gradient(#a4b7af, #323b34);
+            /*  PracticeComponent vars */
+            --word-popup-bg-color: rgba(224, 224, 224, 0.6);
+
+        }
+
         body {
             /*gap: 0;*/
-            color: white;
-            background-color: #151515;
+            color: #000000;
         }
         .hidden {
             display: none;
         }
         .app-container {
+            background-image: var(--theme-background-image);
             margin: 2px;
             font-size: 14px;
-            font-family: monospace;
+            font-family: Arial,sans-serif;
             display: grid;
             gap: 5px;
             grid-template-rows: 24px 1fr 24px;
-
+            grid-template-columns: 100%;
+            padding-left: 5px;
+            padding-right: 5px;
             grid-template-areas:
                 "hd"
                 "pages"
@@ -35,6 +45,8 @@
         .header {
             grid-area: hd;
             background-color: #688a7f;
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+
 
         }
 
@@ -42,10 +54,21 @@
             padding: 5px;
             grid-area: ft;
             background-color: #688a7f;
+            border-top: 1px solid rgba(0,0,0,0.2);
+
+        }
+
+        button {
+            border-radius: 5px;
+        }
+
+        .page-switcher {
+            border-radius: 5px 5px 0 0;
+            margin: 0;
         }
 
         .settings {
-            font-size: 12px;
+            font-size: 14px;
         }
 
         .settings label {
@@ -60,7 +83,8 @@
         }
         .scopes {
             display: grid;
-            grid-template-columns: auto 30vw;
+            gap: 5px;
+            grid-template-columns: auto 27vw;
             grid-template-areas:
                 "scl control"
                 "scr console";
@@ -75,10 +99,10 @@
 
         .scopes .control {
             grid-area: control;
-            background-color: #71a992;
+            /*background-color: #a97171;*/
+            width: 100%;
         }
         .scopes console-element {
-            max-height: 200px;
         }
 
     </style>
@@ -89,7 +113,7 @@
 <div class="app-container">
     <div class="header">
         <span>V 1.0</span>
-<!--        <button id="connect-button">Connect to EDA</button>-->
+        <!--        <button id="connect-button">Connect to EDA</button>-->
         <button class="page-switcher" page="page-1">Options</button>
         <button class="page-switcher" page="page-2">EDA Plot</button>
         <button class="page-switcher" page="page-3">Face Detection</button>
@@ -141,15 +165,15 @@
         </div>
         <div class="page" id="page-2">
             <div class="scopes">
-                <scope-element height="200px" width="70vw" class="scl"></scope-element>
-                <scope-element id="scr-scope" height="50vh"  width="70vw" class="scr" labels></scope-element>
+                <scope-element height="300px" width="70vw" class="scl"></scope-element>
+                <scope-element id="scr-scope" height="400px"  width="70vw" class="scr" labels></scope-element>
                 <console-element></console-element>
                 <div class="control">
-                <session-manager-element data-source="scr-scope"></session-manager-element>
+                    <session-manager-element data-source="scr-scope"></session-manager-element>
 
-                        <scope-marker-editor-element label="Cue" color="#0000ff" />
+                    <scope-marker-editor-element label="Cue" color="#0000ff" />
 
-                   <scope-marker-editor-element label="SCR" color="#ffff00" />
+                    <scope-marker-editor-element label="SCR" color="#ffff00" />
                 </div>
             </div>
 
@@ -161,7 +185,7 @@
 
     <div class="footer">
         <span id="status-indicator">(server status)</span>
-        <websocket-element style="float: right; margin-right: 5px"  url="ws://localhost:1102" bits="16" channels="1" sample-rate="188.2">
+        <websocket-element style="float: right; margin-right: 5px"  url="ws://localhost:1102" bits="16" channels="1" sample-rate="118.2">
         </websocket-element>
     </div>
 </div>

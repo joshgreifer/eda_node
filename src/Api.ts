@@ -26,7 +26,7 @@ export async function get_server_status(): Promise<HidDeviceStatus> {
     return await api_response.json();
 }
 
-export async function save_buffer(conn: iDataConnection, file_name: string) : Promise<any> {
+export async function save_numpy(conn: iDataConnection, file_name: string) : Promise<any> {
 
     const data = conn.DataRaw();
     const dtype = Object.getPrototypeOf(data).constructor.name;
@@ -40,4 +40,31 @@ export async function save_buffer(conn: iDataConnection, file_name: string) : Pr
     } );
     return await api_response.json();
 
+}
+export async function load_json(file_name: string) : Promise<any>
+{
+    const api_response = await fetch(`/load/${file_name}`, {
+        method: 'get',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+
+    } );
+   const response = await api_response.json();
+   return response.data;
+
+}
+
+export async function save_json(obj: any, file_name: string) : Promise<any> {
+
+    const api_response = await fetch(`/save/${file_name}`, {
+        method: 'post',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(obj)
+    } );
+    return await api_response.json();
 }

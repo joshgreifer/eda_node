@@ -19,6 +19,7 @@ export class SpeechService extends EventEmitter
     private synthesizer!: SpeechSynthesizer;
     private recognizer!: SpeechRecognizer;
     private player! : SpeakerAudioDestination;
+    static LatencySeconds: number = 3.500;
 
 
     private get subscriptionKey(): string {

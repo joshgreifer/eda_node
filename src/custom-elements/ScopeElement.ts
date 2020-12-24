@@ -77,16 +77,21 @@ export class ScopeElement extends HTMLElement {
         // noinspection CssInvalidPropertyValue
         el.className = 'container';
         scope_el.className = 'plot';
-
+        const scope = new Scope(scope_el);
         // noinspection CssInvalidFunction,CssInvalidPropertyValue
         style.textContent = `
 
         .container {
-            margin: 0;
             gap: 0;
             width: ${width};
             height: ${height};
+            border: 1px solid rgba(170,170,170, 0.3);
+            border-radius: 10px;
+            margin: 0;
+            overflow: hidden;
             display: grid;
+
+            background-clip: content-box;
             grid-template-rows: 1fr ${labels_el ? 24 : 0}px;
             grid-template-columns: 1fr;
             grid-template-areas:
@@ -95,6 +100,8 @@ export class ScopeElement extends HTMLElement {
         }
 
         .labels {
+            border-top: 1px solid rgb(71,71,71);
+            background-color: ${scope.AxesBackColor};
             grid-area: labels;
             position: relative;
         }
@@ -119,7 +126,7 @@ export class ScopeElement extends HTMLElement {
          }
             
 `;
-        const scope = new Scope(scope_el);
+
         this.scope_ = scope;
 
         const t2x = (t: number) => {
@@ -130,6 +137,8 @@ export class ScopeElement extends HTMLElement {
         const d2w = (d: number) => {
             return scope.duration2pixels(d);
         }
+
+        scope.on('reset', () => { if (labels_el) while (labels_el.firstChild) labels_el.removeChild(labels_el.firstChild); });
 
         scope.on('marker-added', (marker: Marker) => {
             if (labels_el) {

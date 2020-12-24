@@ -1,4 +1,5 @@
 import {BufferDataConstructor} from "./DataConnection";
+import {string2Uint8Array} from "./StringUtils";
 
 const fs = require('fs');
 
@@ -7,13 +8,7 @@ export namespace Numpy {
         Uint8Array | Uint16Array | Uint32Array |
         Float32Array | Float64Array | Uint8ClampedArray;
 
-    function string2Uint8Array( s: string): Uint8Array {
-        const len = s.length;
-        const a = new Uint8Array(len);
-        for (let i = 0; i < len; ++i)
-            a[i] = s.charCodeAt(i) & 0xff;
-        return a;
-    }
+
 
     export function save_data_with_type(filename: string, data: Data, num_channels: number, js_dtype: string) {
 

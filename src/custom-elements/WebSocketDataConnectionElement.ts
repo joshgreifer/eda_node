@@ -115,7 +115,7 @@ export class WebSocketDataConnectionElement extends HTMLElement implements iConn
                     case 0: socket_state = 'connecting'; led_color = '#d4d400'; break;
                     default:socket_state = 'unknown   '; led_color = '#be0000'; break;
                 }
-                msg =  msg + 'Connection: ' + socket_state + ' ';
+                msg =  msg + 'Websocket Connection: ' + socket_state + ' ';
                 if (conn.Sock.readyState === 1) {
                     const rate = conn.MeasuredFs.toFixed(0);
                     msg =  msg + 'Fs=' + rate + ' ';

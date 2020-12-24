@@ -100,9 +100,10 @@ export class ConsoleElement extends HTMLElement {
 
         style.textContent = `
         .console {
+            /*background-color: black;*/
             font-size: 13px;
             overflow: auto;
-            height: 300px;
+            height: 400px;
             overflow-y: scroll;
             overflow-x: scroll;
             overscroll-behavior-y: contain;
@@ -110,7 +111,6 @@ export class ConsoleElement extends HTMLElement {
             grid-area: console;
         }
         .console-input {
-            background-color: black;
             color: #ffffff;
             font-family: 'Lucida Console', Monaco, monospace;
         }
@@ -121,8 +121,6 @@ export class ConsoleElement extends HTMLElement {
         .console-output {
 
             white-space: pre;
-
-            background-color: black;
             color: #BCD631;
             font-family: 'Lucida Console', Monaco, monospace;
             scroll-snap-align: end;
@@ -180,7 +178,7 @@ export class ConsoleElement extends HTMLElement {
             return line_el;
         }
 
-        const clear = () => { while (container_el.firstChild) container_el.removeChild(container_el.firstChild); }
+        const clear = () => { while (el.firstChild) el.removeChild(el.firstChild); }
         const log = (...args: any) => { if (this.developer_mode) add(ConsoleElement.make_msg('info', ...args)); this.old_console_log_func.apply(console, args);}
         const warn = (...args: any) => { if (this.developer_mode) add(ConsoleElement.make_msg('warn', ...args)); this.old_console_warn_func.apply(console, args);}
         const info = (...args: any) => { if (this.developer_mode) add(ConsoleElement.make_msg('info', ...args)); this.old_console_info_func.apply(console, args);}

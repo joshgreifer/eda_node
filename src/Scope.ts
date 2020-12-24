@@ -133,11 +133,18 @@ export enum MarkerStyle {
     Filled,
     Hollow
 }
+
+interface MarkerInfo {
+    time: number,
+    value: number,
+    label: string,
+}
 export class Marker extends EventEmitter {
     style: MarkerStyle = MarkerStyle.Filled;
     radius: number = 4;
     data?: any;
 
+    toJSON: () => MarkerInfo;
     static editDialog: HTMLDialogElement | undefined = undefined;
 
 
@@ -150,8 +157,13 @@ export class Marker extends EventEmitter {
         return Marker.ColorMap[this.label.split(':')[0]] || Marker.DefaultColor;
     }
 
+    static clone(src: Marker): Marker  {
+        return new Marker(src.time, src.value, src.label);
+    }
+
     constructor(public readonly time: number, public readonly value: number, public label: string) {
         super();
+        this.toJSON = () => { return { time: this.time, value: this.value, label: this.label } };
     }
 
     editLabel() {
@@ -240,6 +252,11 @@ export class Scope extends EventEmitter implements iSessionDataSource {
     }
 
     public get Markers(): Marker[] { return this.markers_; }
+
+    public set Markers(markers: Marker[])  {
+        for (const marker of markers)
+            this.AddMarker(Marker.clone(marker));
+    }
 
     private readonly onScreenCanvas!: HTMLCanvasElement;
 
@@ -708,6 +725,8 @@ export class Scope extends EventEmitter implements iSessionDataSource {
     }
 
     public Reset(): void {
+        this.emit('reset');
+        this.markers_ = [];
         this.DataX = 0;
         if (this.conn_)
             this.conn_.Reset();
@@ -742,6 +761,8 @@ export class Scope extends EventEmitter implements iSessionDataSource {
         this.gBounds = new GDIPlus.Rect(y_axis_width, 0, W-y_axis_width, H - x_axis_height);
 
         this.dataTimeOld = -1;  // Force dirty
+
+        this.emit('size', {width: W, height: H});
 
     }
 
