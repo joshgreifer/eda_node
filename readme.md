@@ -12,7 +12,7 @@
 
 #### Starting the scope
 
-1.  To launch the application, run `node server.js`,  then point your browser to [http://localhost:3050/](http://localhost:3050/).
+1.  To launch the application, run `node app.js`,  then point your browser to [http://localhost:3050/](http://localhost:3050/).
 
 1.  Attach the EDA device to a USB port. The plot area will show the Skin Conductance Level (top display) and Skin Conductance Response (SCR) in the bottom display.
 

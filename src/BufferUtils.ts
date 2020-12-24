@@ -48,21 +48,23 @@ class _BufferUtils {
         for (let i = 0; i < chars.length; i++) {
             lookup[chars.charCodeAt(i)] = i;
         }
-
         this.encode = (bufferData: BufferData): BufferDataStringified => {
             const arrayBuffer = bufferData.buffer;
             const dtype =  Object.getPrototypeOf(bufferData).constructor.name;
             const len = bufferData.byteLength;
 
-            let bytes = new Uint8Array(arrayBuffer),
-                i,  base64 = "";
+            const bytes = new Uint8Array(arrayBuffer);
 
-            for (i = 0; i < len; i+=3) {
-                base64 += chars[bytes[i] >> 2];
-                base64 += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
-                base64 += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
-                base64 += chars[bytes[i + 2] & 63];
+            const base64a = [];
+
+            let j = 0;
+            for (let i = 0; i < len; i += 3) {
+                base64a[j++] = chars[bytes[i] >> 2];
+                base64a[j++] = chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+                base64a[j++] = chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
+                base64a[j++] = chars[bytes[i + 2] & 63];
             }
+            let base64 = base64a.join('');
 
             if ((len % 3) === 2) {
                 base64 = base64.substring(0, base64.length - 1) + "=";
@@ -76,9 +78,10 @@ class _BufferUtils {
         this.decode = (stringified: BufferDataStringified): BufferData => {
 
             const base64 = stringified.base64;
-            let bufferLength = base64.length * 0.75,
-                len = base64.length, i, p = 0,
-                encoded1, encoded2, encoded3, encoded4;
+            let bufferLength = base64.length * 0.75;
+
+            const len = base64.length;
+
 
             if (base64[base64.length - 1] === "=") {
                 bufferLength--;
@@ -87,25 +90,25 @@ class _BufferUtils {
                 }
             }
 
-            let arraybuffer = new ArrayBuffer(bufferLength),
-                bytes = new Uint8Array(arraybuffer);
+            const arraybuffer = new ArrayBuffer(bufferLength);
+            const bytes = new Uint8Array(arraybuffer);
 
-            for (i = 0; i < len; i+=4) {
-                encoded1 = lookup[base64.charCodeAt(i)];
-                encoded2 = lookup[base64.charCodeAt(i+1)];
-                encoded3 = lookup[base64.charCodeAt(i+2)];
-                encoded4 = lookup[base64.charCodeAt(i+3)];
-
-                bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
-                bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
-                bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+            let p = 0;
+            for ( let i = 0; i < len;) {
+                const encoded_0 = lookup[base64.charCodeAt(i++)];
+                const encoded_1 = lookup[base64.charCodeAt(i++)];
+                const encoded_2 = lookup[base64.charCodeAt(i++)];
+                const encoded_3 = lookup[base64.charCodeAt(i++)];
+                bytes[p++] = (encoded_0 << 2) | (encoded_1 >> 4);
+                bytes[p++] = ((encoded_1 & 15) << 4) | (encoded_2 >> 2);
+                bytes[p++] = ((encoded_2 & 3) << 6) | (encoded_3 & 63);
             }
 
             const factory = factories[stringified.dtype];
 
             return new factory(arraybuffer);
         }
-    }
+      }
 
 }
 
