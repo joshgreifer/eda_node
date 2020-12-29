@@ -178,7 +178,7 @@ export class DataConnection extends EventEmitter implements iDataConnection {
     TimeToIndex(t: number) : number { return this.buf_.index(Math.round(t * this.Fs)); }
 
     ValueAtTime(t: number, channel: number = 0) {
-        return this.Data(t, 1/this.Fs).pick(channel).get(-1);
+        return this.Data(t, 1/this.Fs).pick(channel).get(-this.NumChannels);
     }
 
     perf_start_frames_read: number = 0;

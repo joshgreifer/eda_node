@@ -54,6 +54,8 @@ import {SessionManagerElement} from "./custom-elements/SessionManagerElement";
 import {HidDeviceConnectionStatusCode} from "./HidDeviceStatus";
 import EDAAnalyzer = SigProc.EDAAnalyzer;
 import {ScopeMarkerEditorElement} from "./custom-elements/ScopeMarkerEditor";
+import {iDataConnection} from "./DataConnection";
+
 
 
 AddAlgorithms(Array.prototype);
@@ -103,6 +105,16 @@ const scopeSCL: Scope = scopeEl_SCL.Scope;
 
 const edaAnalyzer: EDAAnalyzer = new EDAAnalyzer(websocketEl.Connection);
 
+edaAnalyzer.responseAnalyser.on('response', (phase: SigProc.ResponsePhase) => {
+    if (!['BaseLevel'].includes(phase)) {
+        const conn = scopeSCR.Connection as iDataConnection;
+        const t = conn.CurrentTimeSecs;
+        const v = conn.ValueAtTime(t);
+        const marker = new Marker(t, v, phase);
+        scopeEl_SCR.Scope.AddMarker(marker);
+    }
+});
+
 // TEST TEST
 Marker.ColorMap['Cue'] = "#ffffff";
 Marker.ColorMap['Test'] = "#ff0000";
@@ -114,7 +126,22 @@ scopeSCR.ChannelInfo = [
         Visible: true,
         RenderStyle: RenderStyle.Step,
         DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    },
+    {
+        Name: 'LowPass',
+        Color: 'rgb(146,252,122)',
+        Visible: true,
+        RenderStyle: RenderStyle.Line,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    },
+    {
+        Name: 'Threshold',
+        Color: 'rgba(122,150,252, 0.5)',
+        Visible: true,
+        RenderStyle: RenderStyle.Line,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
     }
+
 ];
 
 scopeSCL.ChannelInfo = [
@@ -233,26 +260,32 @@ scopeEl_SCR.Scope.on('size', (size: { width: number, height: number}) => {
 
 const scopeMarkerEditorEls =  document.querySelectorAll('scope-marker-editor-element');
 
-for (const el of scopeMarkerEditorEls) {
-    el.addEventListener('change', () => {
-        Marker.ColorMap = {};
+const onScopeMarkerEditorElsChanged =  () => {
+    Marker.ColorMap = {};
 
-        for (const el of scopeMarkerEditorEls) {
-            const label = el.getAttribute('label') as string;
-            const color = el.getAttribute('color') as string;
-            Marker.ColorMap[label] = color;
-        }
-        // Update all markers in case color has changed
-        for (const marker of scopeSCR.Markers)
-            marker.emit('label-changed', marker.label);
-    });
-}
+    for (const el of scopeMarkerEditorEls) {
+        const label = el.getAttribute('label') as string;
+        const color = el.getAttribute('color') as string;
+        Marker.ColorMap[label] = color;
+    }
+    // Update all markers in case color has changed
+    for (const marker of scopeSCR.Markers)
+        marker.emit('label-changed', marker.label);
+};
+
+onScopeMarkerEditorElsChanged();
+
+for (const el of scopeMarkerEditorEls)
+    el.addEventListener('change', onScopeMarkerEditorElsChanged);
+
 
 window.addEventListener('keyup', (evt: KeyboardEvent) => {
     const code = evt.code;
-    if (evt.altKey && scopeSCR.Connection) {
+    if (scopeSCR.Connection) {
         let label = '';
-        if (code.startsWith('Key'))
+        if (code === 'Space')
+            label = 'Trigger';
+        else if (code.startsWith('Key'))
             label = evt.code[3];
         else if (code.startsWith('Digit'))
             label = code[5];
@@ -263,7 +296,12 @@ window.addEventListener('keyup', (evt: KeyboardEvent) => {
             const t = scopeSCR.Connection.CurrentTimeSecs;
             const v = scopeSCR.Connection.ValueAtTime(t);
             const marker = new Marker(t, v, label);
-            scopeEl_SCR.Scope.AddMarker(marker);
+
+            // Don't add a marker if space bar trigger,  let the analyser do it
+            if (label === 'Trigger')
+                edaAnalyzer.responseAnalyser.Trigger();
+            else
+                scopeEl_SCR.Scope.AddMarker(marker);
         }
     }
 });
