@@ -55,6 +55,7 @@ import {HidDeviceConnectionStatusCode} from "./HidDeviceStatus";
 import EDAAnalyzer = SigProc.EDAAnalyzer;
 import {ScopeMarkerEditorElement} from "./custom-elements/ScopeMarkerEditor";
 import {iDataConnection} from "./DataConnection";
+import ResponseAnalyserParams = SigProc.ResponseAnalyserParams;
 
 
 
@@ -285,6 +286,25 @@ scopeEl_SCR.Scope.on('size', (size: { width: number, height: number}) => {
     c.style.height = size.height + 'px';
 });
 
+function hookupResponseAnalysisEls () {
+
+    const statsBufferDurationSecondsEl = document.querySelector('#stats-buffer-duration-seconds') as HTMLInputElement;
+    const minLatencySecondsEl = document.querySelector('#min-latency-seconds') as HTMLInputElement;
+    const maxLatencySecondsEl = document.querySelector('#max-latency-seconds') as HTMLInputElement;
+    for (const el of [statsBufferDurationSecondsEl, minLatencySecondsEl, maxLatencySecondsEl]) {
+
+        el.onchange = () => {
+            const params: ResponseAnalyserParams = {
+                statsBufferDurationSeconds: Number.parseInt(statsBufferDurationSecondsEl.value),
+                lpFilterCutoffHz: 1,
+                minLatencySeconds: Number.parseInt(minLatencySecondsEl.value),
+                maxLatencySeconds: Number.parseInt(maxLatencySecondsEl.value),
+            };
+            edaAnalyzer.responseAnalyser.Params = params;
+        }
+    }
+}
+hookupResponseAnalysisEls();
 
 const scopeMarkerEditorEls =  document.querySelectorAll('scope-marker-editor-element');
 
@@ -313,8 +333,8 @@ window.addEventListener('keyup', (evt: KeyboardEvent) => {
         let label = '';
         if (code === 'Space')
             label = 'Trigger';
-        else if (code.startsWith('Key'))
-            label = evt.code[3];
+        // else if (code.startsWith('Key'))
+        //     label = evt.code[3];
         else if (code.startsWith('Digit'))
             label = code[5];
         else if (code.startsWith('Numpad'))
