@@ -48,13 +48,19 @@ export class ScopeMarkerEditorElement extends HTMLElement {
         const color = this.hasAttribute('color') ? this.getAttribute('color') as string: '#ffff00';
 
         style.textContent = `
+            div {
+                margin-right: 5px;
+            }
             label {
                 display: inline-block;
                 width: 200px;           
             }
+            input {
+                display: inline-block;
+            }
 `;
         el.innerHTML = `
-            <label for="label1"><input type="text" id="label1" value="${label}"></label><input type="color" value="${color}">
+            <input type="color" value="${color}"><input type="text" id="label1" value="${label}" style="position: relative; top: -3px;">
         `;
 
         const label_el = el.querySelector('input[type="text"]') as HTMLInputElement;

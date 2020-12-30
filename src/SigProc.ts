@@ -197,11 +197,42 @@ export namespace SigProc {
         }
     }
 
+    export interface ResponseAnalyserParams {
+        lpFilterCutoffHz: number;
+        statsBufferDurationSeconds: number;
+        minLatencySeconds: number;
+        maxLatencySeconds: number;
+    }
     export class ResponseAnalyser extends EventEmitter implements Processor  {
+
+        private readonly Fs: number;
+        private lpFilterCutoffHz: number = 1;
+        constructor(conn: iDataConnection) {
+            super();
+            this.Fs = conn.Fs;
+            this.Params = ResponseAnalyser.default_params_;
+        }
+
+        private static default_params_: ResponseAnalyserParams = {
+            statsBufferDurationSeconds: 5,
+            lpFilterCutoffHz: 1,
+            minLatencySeconds: 0,
+            maxLatencySeconds: 3,
+        }
 
         private baseLevel: number = 0;
         private baseLevelRange: number = 0;
         private stimulusReceived: boolean = false;
+
+        private maxLatency!: number;
+        private minLatency!: number;
+
+        public set Params(params: ResponseAnalyserParams) {
+            this.runningStats = new RunningStats(params.statsBufferDurationSeconds * this.Fs);
+            this.lpFilter = new LowPass6dBFilter(params.lpFilterCutoffHz, this.Fs);
+            this.minLatency = params.minLatencySeconds * this.Fs;
+            this.maxLatency = params.maxLatencySeconds * this.Fs;
+        }
 
         public get Threshold() : number { return this.baseLevel + this.baseLevelRange / 2; }
 
@@ -220,9 +251,10 @@ export namespace SigProc {
         private peakTimePoint = 0;
         private HalfRecoveryEndTimePoint = 0;
 
-        private lpFilter = new LowPass6dBFilter(1, 100);
-        private runningStats = new RunningStats(500);
-        private maxLatency: number = 300;
+        private lpFilter! : LowPass6dBFilter;
+        private runningStats! : RunningStats;
+
+
         process(v: number): number {
 
             this.runningStats.process(v);
@@ -241,7 +273,7 @@ export namespace SigProc {
                     }
                     break;
                 case ResponsePhase.Latency:
-                    if (v > this.Threshold) {
+                    if (v > this.Threshold && this.counter - this.stimulusTimePoint > this.minLatency) {
                         this.currentPhase = ResponsePhase.Rising;
                         this.risingStartTimePoint = this.counter;
                     } else if (this.counter - this.stimulusTimePoint > this.maxLatency)
@@ -284,7 +316,7 @@ export namespace SigProc {
         // Skin conductance response
         public SCR: iDataConnection;
 
-        public responseAnalyser: ResponseAnalyser = new ResponseAnalyser();
+        public responseAnalyser: ResponseAnalyser;
 
         constructor(conn: iDataConnection) {
 
@@ -323,6 +355,7 @@ export namespace SigProc {
             this.SCL = SCLConnection;
             this.SCR = SCRConnection;
 
+            this.responseAnalyser = new SigProc.ResponseAnalyser(SCRConnection);
         }
 
     }

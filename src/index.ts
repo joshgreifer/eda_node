@@ -183,29 +183,27 @@ console.info('Connected scope to websocket.');
 
 // const connectButton = document.querySelector('#connect-button') as HTMLButtonElement;
 const enableGazeDetectionEl = document.querySelector('#enable-gaze-detection') as HTMLInputElement;
+const enableSpeechDetectionEl = document.querySelector('#enable-speech-detection') as HTMLInputElement;
 const FaceRecognitionEl = document.querySelector('facedetect-element') as FaceDetectElement;
 
-const startSpeechRecognitionButton = document.querySelector('#start-speech-recognition-button') as HTMLButtonElement;
+// const startSpeechRecognitionButton = document.querySelector('#start-speech-recognition-button') as HTMLButtonElement;
 const statusIndicator = document.querySelector('#status-indicator') as HTMLSpanElement;
 const passwordElement = document.querySelector('#speech-sdk-password-input') as HTMLInputElement;
 const scopeSignalFollowBehaviourRadioButtons = document.querySelectorAll('input[name="scope-signal-follow-behaviour"]');
+const indicatorSpeechDetectionEl = document.querySelector('.speech-detection-active-indicator') as HTMLDivElement;
+let speechService: SpeechService | null = null;
 
-passwordElement.addEventListener('input', ()=> {
-    startSpeechRecognitionButton.disabled = !passwordElement.value;
+const setSpeechRecognition = async (on: boolean) => {
 
-});
+    if (speechService) {
+        await speechService.StopContinuousRecognition();
+        speechService = null;
+    }
+    if (on) {
+        const password = passwordElement.value;
 
-enableGazeDetectionEl.onchange = () => {
-    FaceRecognitionEl.setAttribute('enabled', enableGazeDetectionEl.checked ? 'true' : 'false');
-};
+        speechService = new SpeechService(password, true, false);
 
-for (const el of scopeSignalFollowBehaviourRadioButtons) {
-    el.addEventListener('change', () => { scopeSCR.SignalFollowBehaviour = Number.parseInt((<HTMLInputElement>el).value)});
-}
-startSpeechRecognitionButton.addEventListener('click', async () => {
-    const password = passwordElement.value;
-    if (password !== "") {
-        const speechService = new SpeechService(password, true, false);
         await speechService.StartContinuousRecognition();
         speechService.on('recognized', (text: string) => {
             if (scopeSCR.Connection) {
@@ -225,10 +223,40 @@ startSpeechRecognitionButton.addEventListener('click', async () => {
         });
         speechService.on('error', async (text: string) => {
             c.error(text);
-            await speechService.StopContinuousRecognition();
+            if (speechService) {
+                await speechService.StopContinuousRecognition();
+                speechService = null;
+                enableSpeechDetectionEl.checked = false;
+                indicatorSpeechDetectionEl.classList.remove('active');
+                window.alert("Speech detection is not working.\n\nPlease check that you have entered the correct password and that Internet connectivity is OK.");
+
+            }
         });
+
     }
+};
+
+
+passwordElement.addEventListener('input', ()=> {
+    enableSpeechDetectionEl.disabled = !passwordElement.value;
+
 });
+
+enableGazeDetectionEl.onchange = () => {
+    FaceRecognitionEl.setAttribute('enabled', enableGazeDetectionEl.checked ? 'true' : 'false');
+};
+
+enableSpeechDetectionEl.onchange = async () => {
+    const enable = enableSpeechDetectionEl.checked;
+
+    if (enable) indicatorSpeechDetectionEl.classList.add('active'); else indicatorSpeechDetectionEl.classList.remove('active');
+    await setSpeechRecognition(enable);
+};
+
+for (const el of scopeSignalFollowBehaviourRadioButtons) {
+    el.addEventListener('change', () => { scopeSCR.SignalFollowBehaviour = Number.parseInt((<HTMLInputElement>el).value)});
+}
+
 
 
 c.Events.on('console-click', (el: HTMLDivElement) => {
