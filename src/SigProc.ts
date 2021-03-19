@@ -49,13 +49,11 @@ export namespace SigProc {
     class LowPass6dBFilter extends IIRFilter
     {
 
-        static  k(Fc: number, Fs: number): number
-        {
-            return 1.0 - Math.exp(-2.0 * Math.PI * Fc / Fs );
-        }
-
         constructor(Fc: number, Fs: number) {
-            super([LowPass6dBFilter.k(Fc, Fs) / 2.0, LowPass6dBFilter.k(Fc, Fs) / 2.0], [1.0, LowPass6dBFilter.k(Fc, Fs) - 1.0 ] );
+
+            const k =  1.0 - Math.exp(-2.0 * Math.PI * Fc / Fs );
+
+            super([k / 2.0, k / 2.0], [1.0, k - 1.0 ] );
 
         }
 
@@ -90,16 +88,21 @@ export namespace SigProc {
         BaseLevel = "BaseLevel",
         Latency = "Triggered",
         Rising = "Rising",
-        Peak = "Peak",
+        Recovering = "Recovering",
         Recovered = "Recovered"
     }
-    class RunningStats implements Processor {
+    export class RunningStats implements Processor {
 
         Mean: number = 0;
         Max: number = 0;
         Min: number = 0;
         Var: number = 0;
         ZC: number = 0;  // zero crossings (as a fraction of buffer size , i,e, between 0 and 1)
+        private readonly mean_x: number;
+        private readonly b2: number;
+        public Gradient: number = 0;
+        private readonly Sz: number;
+
         get StdDev(): number { return Math.sqrt(this.Var); }
         Energy: number = 0;
         get Power(): number { return this.Energy / this.Sz; }
@@ -115,9 +118,21 @@ export namespace SigProc {
         private static readonly recalc_sum_iters = 10000;
 
         public static readonly CALC_VAR_AND_ZERO_CROSSING = true;
-        constructor(private Sz: number) {
+        constructor(Sz: number) {
             Sz = Math.floor(Sz);
+            this.Sz = Sz;
             this.buf_ = new Float32Array(Sz);
+
+            // gradient (linear regression) mean_x and b2 pre-calculation
+            this.mean_x = (Sz - 1) / 2.0;
+            this.b2 = (() => {
+                let b2 = 0.0;
+                for (let i = 0; i < Sz; ++i) {
+                    const dist = i - this.mean_x;
+                    b2 += dist * dist;
+                }
+                return b2;
+            })();
 
         }
 
@@ -153,6 +168,7 @@ export namespace SigProc {
             let max = -Number.MAX_VALUE, min = Number.MAX_VALUE;
             let variance = 0.0;
             let zc = 0;
+            let b1 = 0.0;
             if (RunningStats.CALC_VAR_AND_ZERO_CROSSING)
                 for (let i = 0; i < n; ++i) {
 
@@ -171,10 +187,15 @@ export namespace SigProc {
                         max = vv;
                     if (vv < min)
                         min  =vv;
+
+                    // Linear regression
+                    b1 += (i - this.mean_x) * (diff_mean);
                 }
             // normalize var
-            variance /= (n);
+            variance /= n;
 
+            // l.r.
+            this.Gradient = b1 / this.b2;
             // bump index
             if (++idx_ == Sz) {
                 idx_ = 0;
@@ -281,12 +302,12 @@ export namespace SigProc {
                     break;
                 case ResponsePhase.Rising:
                     if (v < this.prevV) {
-                        this.currentPhase = ResponsePhase.Peak;
+                        this.currentPhase = ResponsePhase.Recovering;
                         this.amplitude = this.prevV - this.baseLevel;
                         this.peakTimePoint = this.counter;
                     }
                     break;
-                case ResponsePhase.Peak:
+                case ResponsePhase.Recovering:
                     if (v < this.baseLevel + this.amplitude / 2) {
                         this.currentPhase = ResponsePhase.Recovered;
                         this.HalfRecoveryEndTimePoint = this.counter;

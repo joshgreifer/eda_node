@@ -9,6 +9,7 @@ import {
 } from 'microsoft-cognitiveservices-speech-sdk'
 
 import {EventEmitter} from "eventemitter3"
+import {arrayToHexString, hexStringToArray} from "./StringUtils";
 
 
 const SpeechSDK = require('microsoft-cognitiveservices-speech-sdk');
@@ -22,10 +23,18 @@ export class SpeechService extends EventEmitter
     static LatencySeconds: number = 3.500;
 
 
+
+
     private get subscriptionKey(): string {
-        let subs_key_encrypted =  [13, 90, 82, 1, 12, 12, 95, 1, 12, 90, 0, 11, 4, 13, 12, 13, 82, 9, 1, 12, 88, 15, 4, 6, 9, 14, 89, 2, 7, 93, 14, 83];
+
+        // To generate, run subscriptionKey(<my real key>), and enter returned value in line below (encrypting encrypted key gives original key, as crypt is just xor)
+        const subs_key_encrypted =  hexStringToArray('5b9226d15a412444bfe92c450a01bfa7');
         // @ts-ignore
-        return String.fromCharCode(...subs_key_encrypted.crypt(new TextEncoder().encode(this.subscription_decrypt_key)));
+        const subs_key_decrypted = subs_key_encrypted.crypt(new TextEncoder().encode(this.subscription_decrypt_key));
+
+        console.log(arrayToHexString(subs_key_decrypted));
+        return arrayToHexString(subs_key_decrypted);
+
     }
 
     constructor(private subscription_decrypt_key: string, private create_recognizer: boolean = true, private create_synthesizer: boolean = true) {
@@ -34,11 +43,6 @@ export class SpeechService extends EventEmitter
     }
 
     Initialize(recognizer: boolean, synthesizer: boolean): void  {
-//        const subscriptionKey = '70499f6c9f0a4998ae6db6822b79c2fd';  // SEL
-
-//        const subscriptionKey = '40b4d551929a48d4894dae43a7322579'; // Harmonica cs-speech
-
-
 
         const serviceRegion = 'eastus';
         const speechConfig = SpeechConfig.fromSubscription(this.subscriptionKey, serviceRegion);
