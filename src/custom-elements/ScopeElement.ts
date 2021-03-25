@@ -46,8 +46,9 @@ export class ScopeElement extends HTMLElement {
         const labels_el = has_labels ? <HTMLDivElement>document.createElement('div') : undefined;
         const marker_editor_dialog_el = <HTMLDialogElement>document.createElement('dialog');
 
-        const height = this.hasAttribute('height') ? this.getAttribute('height') : '80vh'
-        const width = this.hasAttribute('width') ? this.getAttribute('width') : '70vh'
+        const height = this.hasAttribute('height') ? this.getAttribute('height') : '80vh';
+        const width = this.hasAttribute('width') ? this.getAttribute('width') : '70vh';
+        const title = this.hasAttribute('title') ? this.getAttribute('title') : '(unnamed)';
 
         marker_editor_dialog_el.innerHTML = `
             <form method="dialog">
@@ -77,7 +78,7 @@ export class ScopeElement extends HTMLElement {
         // noinspection CssInvalidPropertyValue
         el.className = 'container';
         scope_el.className = 'plot';
-        const scope = new Scope(scope_el);
+        const scope = new Scope(scope_el, title || '(unnamed');
         // noinspection CssInvalidFunction,CssInvalidPropertyValue
         style.textContent = `
 

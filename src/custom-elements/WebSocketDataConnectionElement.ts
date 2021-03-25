@@ -71,6 +71,34 @@ export class WebSocketDataConnectionElement extends HTMLElement implements iConn
 
     private conn_: WebSocketDataConnection;
 
+
+    private setConnection(): void  {
+
+
+        const num_channels: number  = this.hasAttribute('channels') ? Number.parseInt(this.getAttribute('channels') as string): 1;
+        const bits_per_sample: number  = this.hasAttribute('bits') ? Number.parseInt(this.getAttribute('bits') as string): 16;
+        const sample_rate: number  = this.hasAttribute('sample-rate') ? Number.parseInt(this.getAttribute('sample-rate') as string): 1;
+
+        let array_constructor: BufferDataConstructor;
+
+        switch (bits_per_sample) {
+            case 16: array_constructor = Int16Array; break;
+            case 32: array_constructor = Float32Array; break;
+            case 8: array_constructor = Uint8Array; break;
+            case 64: array_constructor = Float64Array; break;
+            default:
+                throw "Unknown bits per sample";
+        }
+
+        this.conn_ = new WebSocketDataConnection(sample_rate, num_channels, array_constructor)
+
+        if (this.hasAttribute('url')) {
+            this.conn_.Url = this.getAttribute('url') as string;
+        }
+
+        this.conn_.AddStatusListener(this);
+    }
+
     constructor() {
         super();
         const shadow = this.attachShadow({mode: 'open'}); // sets and returns 'this.shadowRoot'
@@ -80,7 +108,8 @@ export class WebSocketDataConnectionElement extends HTMLElement implements iConn
         const bits_per_sample: number  = this.hasAttribute('bits') ? Number.parseInt(this.getAttribute('bits') as string): 16;
         const sample_rate: number  = this.hasAttribute('sample-rate') ? Number.parseInt(this.getAttribute('sample-rate') as string): 1;
 
-        let array_constructor: BufferDataConstructor = Int16Array;
+        let array_constructor: BufferDataConstructor;
+
         switch (bits_per_sample) {
             case 16: array_constructor = Int16Array; break;
             case 32: array_constructor = Float32Array; break;
@@ -88,8 +117,8 @@ export class WebSocketDataConnectionElement extends HTMLElement implements iConn
             case 64: array_constructor = Float64Array; break;
             default:
                 throw "Unknown bits per sample";
-
         }
+
         this.conn_ = new WebSocketDataConnection(sample_rate, num_channels, array_constructor)
 
         if (this.hasAttribute('url')) {
@@ -106,7 +135,7 @@ export class WebSocketDataConnectionElement extends HTMLElement implements iConn
 
             let msg = '';
             let led_color = '#444444' // not connected
-            let socket_state = '';
+            let socket_state;
             if (conn.Sock) {
                 switch (conn.Sock.readyState) {
                     case 3: socket_state = 'closed    '; led_color = '#444444'; break;
@@ -115,14 +144,14 @@ export class WebSocketDataConnectionElement extends HTMLElement implements iConn
                     case 0: socket_state = 'connecting'; led_color = '#d4d400'; break;
                     default:socket_state = 'unknown   '; led_color = '#be0000'; break;
                 }
-                msg =  msg + 'Websocket Connection: ' + socket_state + ' ';
+                msg += 'Websocket Connection: ' + socket_state + ' ';
                 if (conn.Sock.readyState === 1) {
                     const rate = conn.MeasuredFs.toFixed(0);
-                    msg =  msg + 'Fs=' + rate + ' ';
+                   msg += 'Fs=' + rate + ' ';
 
                 }
             } else {
-                msg = msg + 'Not connected, press [Connect] button.'
+                msg += 'Not connected, press [Connect] button.'
             }
             const ctx: CanvasRenderingContext2D = el.getContext('2d') as CanvasRenderingContext2D;
             //       ctx.fillStyle = 'red';

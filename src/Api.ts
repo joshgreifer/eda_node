@@ -1,10 +1,11 @@
 import {BufferData, iDataConnection} from "./DataConnection";
-import {HidDeviceStatus} from "./HidDeviceStatus";
+import {DeviceStatus} from "./DeviceStatus";
 
 
-export async function open_hid_device(vid: number, pid:number): Promise<HidDeviceStatus> {
+export async function open_device(vid: number | string, pid?:number): Promise<DeviceStatus> {
 
-
+    if (pid === undefined)
+        pid = 0;
     const api_response = await fetch(`/open/${vid}/${pid}`, {
         method: 'get',
         headers: {
@@ -15,7 +16,7 @@ export async function open_hid_device(vid: number, pid:number): Promise<HidDevic
     return await api_response.json();
 }
 
-export async function get_server_status(): Promise<HidDeviceStatus> {
+export async function get_devices_status(): Promise<DeviceStatus []> {
     const api_response = await fetch(`/status`, {
         method: 'get',
         headers: {
@@ -23,7 +24,8 @@ export async function get_server_status(): Promise<HidDeviceStatus> {
             'Content-Type': 'application/json'
         },
     } );
-    return await api_response.json();
+    const statuses: DeviceStatus[] = await api_response.json();
+    return statuses;
 }
 
 export async function save_numpy(conn: iDataConnection, file_name: string) : Promise<any> {

@@ -296,6 +296,7 @@ export class Scope extends EventEmitter implements iSessionDataSource {
 
     public IS_SPECTROGRAM: boolean = false;
 
+    public Title: string = '(Unnamed)';
 
     public get GridMinorColor() : string | CanvasGradient { return this.penGridMinor.Color; }
     public set GridMinorColor(color: string | CanvasGradient ) { this.penGridMinor.Color = color; }
@@ -515,9 +516,10 @@ export class Scope extends EventEmitter implements iSessionDataSource {
             return  '.' + new Date(t).toISOString().replace(/^.*\./, '').replace(/Z$/, '');
     }
 
-    constructor(container: HTMLElement) {
+    constructor(container: HTMLElement, title?: string) {
         super();
 
+        this.Title = title === undefined ? '(unnamed)' : title;
         this.ColorLookupTable = Clut.Presets.GRAYSCALE;
 
 
@@ -740,29 +742,35 @@ export class Scope extends EventEmitter implements iSessionDataSource {
     }
 
     public Resize(W: number, H: number): void {
-        const  Y_AXIS_WIDTH = 48;
-        const  X_AXIS_HEIGHT = 32;
+        if (W > 0 && H > 0) {
+            const Y_AXIS_WIDTH = 48;
+            const X_AXIS_HEIGHT = 32;
 
-        // const r = this.onScreenCanvas.parentElement!.getBoundingClientRect();
-        // const W = r.width;
-        // const H = r.height;
-        const y_axis_width = this.YAxisVisible ? Y_AXIS_WIDTH : 0;
-        const x_axis_height = this.TimeAxisVisible ? X_AXIS_HEIGHT : 0;
+            // const r = this.onScreenCanvas.parentElement!.getBoundingClientRect();
+            // const W = r.width;
+            // const H = r.height;
+            const y_axis_width = this.YAxisVisible ? Y_AXIS_WIDTH : 0;
+            const x_axis_height = this.TimeAxisVisible ? X_AXIS_HEIGHT : 0;
 
-        for (let canvas of this.canvases) {
-            canvas.width = W;
-            canvas.height = H;
-        }
+            for (let canvas of this.canvases) {
+                canvas.width = W;
+                canvas.height = H;
+            }
 
-        this.yAxisBounds = new GDIPlus.Rect(0, 0, y_axis_width, H - x_axis_height);
-        this.timeAxisBounds = new GDIPlus.Rect(y_axis_width, H - x_axis_height, W - y_axis_width, x_axis_height);
-        this.ButtonsBounds = new GDIPlus.Rect(2+Y_AXIS_WIDTH, H - x_axis_height - X_AXIS_HEIGHT - 2, Y_AXIS_WIDTH, X_AXIS_HEIGHT);
+            this.yAxisBounds = new GDIPlus.Rect(0, 0, y_axis_width, H - x_axis_height);
+            this.timeAxisBounds = new GDIPlus.Rect(y_axis_width, H - x_axis_height, W - y_axis_width, x_axis_height);
+            this.ButtonsBounds = new GDIPlus.Rect(2 + Y_AXIS_WIDTH, H - x_axis_height - X_AXIS_HEIGHT - 2, Y_AXIS_WIDTH, X_AXIS_HEIGHT);
 
-        this.gBounds = new GDIPlus.Rect(y_axis_width, 0, W-y_axis_width, H - x_axis_height);
+            this.gBounds = new GDIPlus.Rect(y_axis_width, 0, W - y_axis_width, H - x_axis_height);
 
-        this.dataTimeOld = -1;  // Force dirty
+            this.dataTimeOld = -1;  // Force dirty
 
-        this.emit('size', {width: W, height: H});
+            this.emit('size', {width: W, height: H});
+
+            console.log(`${this.Title} resized. width: ${W}, height: ${H}`);
+        } else
+            console.log(`${this.Title} NOT resized. canvas width: ${this.canvases[0].width}, height: ${this.canvases[0].height}`);
+
 
     }
 

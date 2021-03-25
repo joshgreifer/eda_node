@@ -37,11 +37,18 @@ export interface iConnectionStatusListener
     onConnectionStatus(conn: iDataConnection): void;
 }
 
-function parseEDA(eda_report: any) : BufferData
+function parseEDA(data: ArrayBuffer) : BufferData
 {
-    return new Int16Array(eda_report).subarray(1,2);
+    // ignore first 16 bits
+    return new Int16Array(data).subarray(1,2);
 }
 
+
+function parsePPGEDA(data: ArrayBuffer) : BufferData
+{
+    // ignore first 16 bits of each 6 byte (3 word) packet
+    return new Int16Array(data).filter((v:any,i:number) => (i % 3) > 0);
+}
 
 export class WebSocketDataConnection extends DataConnection  {
 
@@ -53,7 +60,7 @@ export class WebSocketDataConnection extends DataConnection  {
     }
     private statusListeners: iConnectionStatusListener[] = [];
 
-    constructor(sample_rate: number, num_channels: number, private array_constructor: BufferDataConstructor, private parser?: (data: any) => BufferData ) {
+    constructor(sample_rate: number, num_channels: number, private array_constructor: BufferDataConstructor, private parser?: (data: ArrayBuffer) => BufferData ) {
         super(sample_rate, num_channels, array_constructor);
 
 
@@ -95,7 +102,7 @@ export class WebSocketDataConnection extends DataConnection  {
         };
 
         // Test test
-        this.parser = parseEDA;
+        // this.parser = parsePPGEDA;
 
         if (this.parser !== undefined) {
             const parser = this.parser;

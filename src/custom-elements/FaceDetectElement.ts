@@ -150,6 +150,7 @@ export class FaceDetectElement extends HTMLElement {
 
             });
     }
+
     constructor() {
         super();
         const self = this;
@@ -181,10 +182,13 @@ export class FaceDetectElement extends HTMLElement {
 
         shadow.append( style, video, canvas );
 
-        (async  () => {
-            await self.OpenCVReady;
-            await self.init(video, canvas);
-        })();
+
+        if (false)
+            // noinspection UnreachableCodeJS
+            (async  () => {
+                await self.OpenCVReady;
+                await self.init(video, canvas);
+            })();
 
 
 

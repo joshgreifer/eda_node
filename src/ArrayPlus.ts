@@ -30,7 +30,6 @@ export function AddAlgorithms(obj: Object = Array.prototype) {
             }
     })
 
-    Array.from(new TextEncoder().encode('fred'))
 
     Object.defineProperty(obj, 'shuffle', {
         value: function () {

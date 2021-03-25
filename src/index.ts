@@ -47,11 +47,11 @@ import {
     Scope,
     SignalFollowBehaviour
 } from "./Scope";
-import {get_server_status, open_hid_device} from "./Api";
+import {get_devices_status, open_device} from "./Api";
 import {SpeechService} from "./SpeechService";
 import {SigProc} from "./SigProc";
 import {SessionManagerElement} from "./custom-elements/SessionManagerElement";
-import {HidDeviceConnectionStatusCode} from "./HidDeviceStatus";
+import {DeviceConnectionStatusCode} from "./DeviceStatus";
 import EDAAnalyzer = SigProc.EDAAnalyzer;
 import {ScopeMarkerEditorElement} from "./custom-elements/ScopeMarkerEditor";
 import {iDataConnection} from "./DataConnection";
@@ -91,20 +91,27 @@ function switchToPage(page_id: string) {
         (<HTMLButtonElement>page_button).disabled = (page_button.getAttribute('page') === page_id);
 
 }
-switchToPage('page-2');
+switchToPage('page-4');
 
 const c = document.querySelector('console-element') as ConsoleElement;
 c.info('App Loaded.');
 
 const scopeEl_SCR = document.querySelector('.scr') as ScopeElement;
 const scopeEl_SCL = document.querySelector('.scl') as ScopeElement;
+const scopeEl_PPG = document.querySelector('.ppg-eda-scope') as ScopeElement;
 
-const websocketEl = document.querySelector('websocket-element') as WebSocketDataConnectionElement;
+const usbDeviceConnectionEl = document.querySelector('#usb-device-connection') as WebSocketDataConnectionElement;
+const serialPortDeviceConnectionEl = document.querySelector('#serial-port-device-connection') as WebSocketDataConnectionElement;
+
+const statusIndicatorUSBDevice = document.querySelector('#usb-device-status-indicator') as HTMLSpanElement;
+const statusIndicatorSerialPortDevice = document.querySelector('#serial-port-device-status-indicator') as HTMLSpanElement;
+
 
 const scopeSCR: Scope = scopeEl_SCR.Scope;
 const scopeSCL: Scope = scopeEl_SCL.Scope;
+const scopePPG: Scope = scopeEl_PPG.Scope;
 
-const edaAnalyzer: EDAAnalyzer = new EDAAnalyzer(websocketEl.Connection);
+const edaAnalyzer: EDAAnalyzer = new EDAAnalyzer(usbDeviceConnectionEl.Connection);
 
 edaAnalyzer.responseAnalyser.on('response', (phase: SigProc.ResponsePhase) => {
     if (!['BaseLevel'].includes(phase)) {
@@ -119,6 +126,10 @@ edaAnalyzer.responseAnalyser.on('response', (phase: SigProc.ResponsePhase) => {
 // TEST TEST
 Marker.ColorMap['Cue'] = "#ffffff";
 Marker.ColorMap['Test'] = "#ff0000";
+
+scopeSCR.Title  = "Skin Conductance Response";
+scopeSCL.Title = "Skin Conductance Level";
+scopePPG.Title = "Combined PPG/EDA";
 
 scopeSCR.ChannelInfo = [
     {
@@ -145,6 +156,8 @@ scopeSCR.ChannelInfo = [
 
 ];
 
+
+
 scopeSCL.ChannelInfo = [
     {
         Name: 'EDA',
@@ -162,8 +175,26 @@ scopeSCL.ChannelInfo = [
     }
 ];
 
+
+scopePPG.ChannelInfo = [
+    {
+        Name: 'EDA',
+        Color: '#00ff00',
+        Visible: true,
+        RenderStyle: RenderStyle.Step,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    },
+    {
+        Name: 'PPG',
+        Color: '#ffc200',
+        Visible: true,
+        RenderStyle: RenderStyle.Step,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    }
+];
+
 // set common properties for all scopes
-for (const scope of [scopeSCR, scopeSCL]) {
+for (const scope of [scopeSCR, scopeSCL, scopePPG]) {
     scope.SampleUnitMultiplier = 1;
     scope.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
     scope.SignalFollowBehaviour = SignalFollowBehaviour.Scroll;
@@ -180,7 +211,9 @@ scopeSCL.Connection = edaAnalyzer.SCL;
 scopeSCL.BackColor = '#001414'
 
 
-console.info('Connected scope to websocket.');
+scopePPG.Connection = serialPortDeviceConnectionEl.Connection;
+
+console.info('Connected scopes to websocket.');
 
 // const connectButton = document.querySelector('#connect-button') as HTMLButtonElement;
 const enableGazeDetectionEl = document.querySelector('#enable-gaze-detection') as HTMLInputElement;
@@ -188,7 +221,6 @@ const enableSpeechDetectionEl = document.querySelector('#enable-speech-detection
 const FaceRecognitionEl = document.querySelector('facedetect-element') as FaceDetectElement;
 
 // const startSpeechRecognitionButton = document.querySelector('#start-speech-recognition-button') as HTMLButtonElement;
-const statusIndicator = document.querySelector('#status-indicator') as HTMLSpanElement;
 const passwordElement = document.querySelector('#speech-sdk-password-input') as HTMLInputElement;
 const scopeSignalFollowBehaviourRadioButtons = document.querySelectorAll('input[name="scope-signal-follow-behaviour"]');
 const indicatorSpeechDetectionEl = document.querySelector('.speech-detection-active-indicator') as HTMLDivElement;
@@ -354,13 +386,29 @@ window.addEventListener('keyup', (evt: KeyboardEvent) => {
     }
 });
 
+enum DeviceId {
+    MINDLIFE_HID_EDA,
+    MINDLIFE_BT_PPG_EDA
+}
+
 window.setInterval(() => {
     (async () => {
-        const status = await get_server_status();
-        statusIndicator.innerText = status.message;
-        if (status.code === HidDeviceConnectionStatusCode.DISCONNECTED) {
-            await open_hid_device(1240, 61281);
+
+        const statuses = await get_devices_status();
+
+        const eda_device_status = statuses[DeviceId.MINDLIFE_HID_EDA];
+        const ppg_eda_device_status = statuses[DeviceId.MINDLIFE_BT_PPG_EDA];
+
+        statusIndicatorUSBDevice.innerHTML = eda_device_status.message;
+        statusIndicatorSerialPortDevice.innerHTML = ppg_eda_device_status.message;
+
+        if (eda_device_status.code === DeviceConnectionStatusCode.DISCONNECTED) {
+            await open_device(1240, 61281)
         }
+        if (ppg_eda_device_status.code === DeviceConnectionStatusCode.DISCONNECTED) {
+            await open_device("COM7");
+        }
+
     } )();
 
 }, 2000);

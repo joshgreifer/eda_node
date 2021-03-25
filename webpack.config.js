@@ -55,7 +55,8 @@ const serverConfig = {
 
     target: 'node',
     externals: {
-        "node-hid": 'commonjs node-hid'
+        "node-hid": 'commonjs node-hid',
+        "serialport": 'commonjs serialport'
     },
     node: {
         global: false,

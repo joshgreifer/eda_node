@@ -26,7 +26,7 @@
             font-family: Arial,sans-serif;
             display: grid;
             gap: 5px;
-            grid-template-rows: 24px 1fr 24px;
+            grid-template-rows: 24px 1fr 48px;
             grid-template-columns: 100%;
             padding-left: 5px;
             padding-right: 5px;
@@ -132,6 +132,8 @@
         <button class="page-switcher" page="page-1">Options</button>
         <button class="page-switcher" page="page-2">EDA Plot</button>
         <button class="page-switcher" page="page-3">Face Detection</button>
+        <button class="page-switcher" page="page-4">PPG/EDA</button>
+
         <div class="speech-detection-active-indicator"></div>
     </div>
     <div class="pages">
@@ -185,7 +187,7 @@ If the baseline EDA signal fluctuates significantly, increase this value.
 ">
                         Baseline calculation period (s)
                     </label>
-                     <input class="response-analysis-parameter" type="number" id="stats-buffer-duration-seconds" min="1" max="10" step="1" value="5">
+                        <input class="response-analysis-parameter" type="number" id="stats-buffer-duration-seconds" min="1" max="10" step="1" value="5">
                     </li>
                     <li><label for="min-latency-seconds" title="The minimum latency in seconds after a stimulus before a response is considered to be an event-related response.
 
@@ -210,8 +212,8 @@ Decrease this value if valid event-related responses are being missed by the sys
         </div>
         <div class="page" id="page-2">
             <div class="scopes">
-                <scope-element height="300px" width="70vw" class="scl"></scope-element>
-                <scope-element id="scr-scope" height="400px"  width="70vw" class="scr" labels></scope-element>
+                <scope-element height="300px" width="70vw" class="scl" title="Skin Conductance Level"></scope-element>
+                <scope-element id="scr-scope" height="400px"  width="70vw" class="scr" title="Skin Conductance Response" labels></scope-element>
                 <console-element></console-element>
                 <div class="control">
                     <session-manager-element data-source="scr-scope"></session-manager-element>
@@ -226,18 +228,28 @@ Decrease this value if valid event-related responses are being missed by the sys
         <div class="page" id="page-3">
             <facedetect-element enabled="false"></facedetect-element>
         </div>
+        <div class="page" id="page-4">
+            <scope-element id="ppg-eda-scope" height="50vh"  width="70vw" class="ppg-eda-scope" title="PPG/EDA"></scope-element>
+        </div>
     </div>
 
     <div class="footer">
-        <span id="status-indicator">(server status)</span>
-        <websocket-element style="float: right; margin-right: 5px"  url="ws://localhost:1102" bits="16" channels="1" sample-rate="118.2">
-        </websocket-element>
+        <div style="clear: both">
+            USB (HID) Device Mindlife EDA:
+            <span id="usb-device-status-indicator">(server status)</span>
+            <websocket-element id="usb-device-connection" style="float: right; margin-right: 5px"  url="ws://localhost:1102" bits="16" channels="1" sample-rate="118.2"></websocket-element>
+
+        </div>
+        <div style="clear: both">
+            BT Serial Port Device MindHeart Tech:
+            <span id="serial-port-device-status-indicator">(server status)</span>
+            <websocket-element id="serial-port-device-connection"  style="float: right; margin-right: 5px"  url="ws://localhost:1103" bits="16" channels="2" sample-rate="100"></websocket-element>
+        </div>
     </div>
+
+    <script src="opencv/opencv.js"></script>
+    <script src="index.js"></script>
 </div>
-
-<script src="opencv/opencv.js"></script>
-<script src="index.js"></script>
-
 </body>
 
 </html>

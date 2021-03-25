@@ -2,11 +2,17 @@
 import * as HID from "node-hid";
 import * as BodyParser from "body-parser";
 
+import "serialport";
+
 import express, {Express, Request, Response} from "express";
 import path from "path";
 import {Numpy} from "./Numpy";
-import {HidDeviceConnectionStatusCode, HidDeviceStatus} from "./HidDeviceStatus";
+import {DeviceConnectionStatusCode, DeviceStatus} from "./DeviceStatus";
 import * as fs from "fs";
+import SerialPort from "serialport";
+
+import {BufferData} from "./DataConnection";
+import ByteLength = SerialPort.parsers.ByteLength;
 
 const WebSocket = require('ws');
 
@@ -17,14 +23,39 @@ const jsonParser = BodyParser.json({type: 'application/json', limit: '50mb'})
 const app: Express = express();
 const port = 3050; // default port to listen
 
-let status: HidDeviceStatus = {
-    code: HidDeviceConnectionStatusCode.DISCONNECTED,
-    message: "No device connected.",
-};
+enum DeviceId {
+    MINDLIFE_HID_EDA,
+    MINDLIFE_BT_PPG_EDA
+}
 
-const wss_port = 1102;
-let wss: any  = null;
+let statuses: DeviceStatus[] = [
+    {
+        code: DeviceConnectionStatusCode.DISCONNECTED,
+        message: "No EDA device connected.",
+        websocket_port: 1102,
+    },
+    {
+        code: DeviceConnectionStatusCode.DISCONNECTED,
+        message: "No EDA/PPG device connected.",
+        websocket_port: 1103,
+    }
 
+];
+
+
+//let wss: any  = null;
+
+function parsePPGEDA(data: Buffer) : Uint8Array
+{
+    return new Uint8Array(data.buffer).subarray(2,6);
+
+}
+
+function parseEDA(data: Buffer) : Uint8Array
+{
+    return new Uint8Array(data.buffer).subarray(2,4);
+
+}
 app.use(express.static(path.join(__dirname, 'public')));
 
 // app.use( (err: any, req: any, res: any) => {
@@ -45,7 +76,7 @@ app.get( "/devices", ( req: Request, res: Response ) => {
 
 app.get('/status', ( req: Request, res: Response ) => {
     res.set('Content-Type', 'application/json');
-    res.write(JSON.stringify(status, null, 2));
+    res.write(JSON.stringify(statuses, null, 2));
     res.end();
 });
 
@@ -115,53 +146,93 @@ app.post('/data/:num_channels/:js_dtype/:filename', rawParser, ( req: Request, r
     res.end();
 });
 
+
 app.get('/open/:vid/:pid', ( req: Request, res: Response ) => {
 
     res.set('Content-Type', 'application/json');
 
     const vid = Number.parseInt(req.params.vid);
     const pid = Number.parseInt(req.params.pid);
-
-    const devs =  HID.devices();
-    const deviceInfo = devs.find( (d: HID.Device) => {
-        return d.vendorId===vid && d.productId===pid;
-
-    });
-    if ( deviceInfo ) {
-
+    if (isNaN(vid)) {  // Assume serial port,  Bluetooth PPG/EDA device
+        const status = statuses[DeviceId.MINDLIFE_BT_PPG_EDA];
         try {
-            const device = new HID.HID(deviceInfo.path as string);
+            const  device_port = new SerialPort(req.params.vid, {
+                // baudRate: 19200,
+                autoOpen: true
+            }, (err) => { if (err) throw err});
 
-            if (wss)
-                wss.close();
-            wss = new WebSocket.Server({port: wss_port});
-            wss.on('connection', (ws: WebSocket) => {
-                device.on('error', (error) => {
-                    status.code = HidDeviceConnectionStatusCode.DISCONNECTED;
+            // device_port.open((err) => { if (err) throw err; });
+            const device_parser = device_port.pipe(new ByteLength({length: 6}));
+            if (status.wss)
+                status.wss.close();
+
+            status.wss = new WebSocket.Server({port: status.websocket_port});
+            status.wss.on('connection', (ws: WebSocket) => {
+                device_port.on('error', (error) => {
+                    status.code = DeviceConnectionStatusCode.DISCONNECTED;
                     status.message = error.toString();
                 });
-                device.on('data', (data) => {
-                    ws.send(data);
+                device_parser.on('data', (data) => {
+                    const parsed_data = parsePPGEDA(data);
+                    ws.send(parsed_data);
                 });
             });
 
-            status.websocket = "ws://0.0.0.0:1102";
-            status.device = deviceInfo;
+            status.websocket_address = "ws://0.0.0.0:" + status.websocket_port;
+            status.device = device_port.path;
             status.message = "Connected.";
-            status.code = HidDeviceConnectionStatusCode.CONNECTED;
+            status.code = DeviceConnectionStatusCode.CONNECTED;
 
             res.write(JSON.stringify(status, null, 2));
         } catch (e) {
             status.message = e.toString();
-            res.status(400).send(JSON.stringify(status, null, 2));
+            res.status(400).send(JSON.stringify(statuses, null, 2));
+        }
+    } else { // Assume HID device with vendor and product  Id
+        const status = statuses[DeviceId.MINDLIFE_HID_EDA];
+        const devs =  HID.devices();
+        const deviceInfo = devs.find( (d: HID.Device) => {
+            return d.vendorId===vid && d.productId===pid;
+
+        });
+        if ( deviceInfo ) {
+
+            try {
+                const device = new HID.HID(deviceInfo.path as string);
+
+                if (status.wss)
+                    status.wss.close();
+                status.wss = new WebSocket.Server({port: status.websocket_port});
+                status.wss.on('connection', (ws: WebSocket) => {
+                    device.on('error', (error) => {
+                        status.code = DeviceConnectionStatusCode.DISCONNECTED;
+                        status.message = error.toString();
+                    });
+                    device.on('data', (data) => {
+                        data = parseEDA(data);
+                        ws.send(data);
+                    });
+                });
+
+                status.websocket_address = "ws://0.0.0.0:" + status.websocket_port;
+                status.device = deviceInfo;
+                status.message = "Connected.";
+                status.code = DeviceConnectionStatusCode.CONNECTED;
+
+                res.write(JSON.stringify(status, null, 2));
+            } catch (e) {
+                status.message = e.toString();
+                res.status(400).send(JSON.stringify(status, null, 2));
+            }
+
+
+
+        } else {
+            status.code = DeviceConnectionStatusCode.DISCONNECTED;
+            status.message = `Device with vendor id 0x${vid.toString(16)} and product id 0x${pid.toString(16)} not found`;
+            res.status(404).send(JSON.stringify(statuses, null, 2));
         }
 
-
-
-    } else {
-        status.code = HidDeviceConnectionStatusCode.DISCONNECTED;
-        status.message = `Device with vendor id 0x${vid.toString(16)} and product id 0x${pid.toString(16)} not found`;
-        res.status(404).send(JSON.stringify(status, null, 2));
     }
 
     res.end();
