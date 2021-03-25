@@ -287,7 +287,9 @@ export class Scope extends EventEmitter implements iSessionDataSource {
     public AxisFontHeight = 12;
     private ButtonFont = '16px Arial';
 
+    public TitleFont = '18px Arial';
 
+    public TitleColor = 'rgb(255,255,255, 0.5)'
     public BackColor = 'black';
     public ForeColor = 'white';
     public AxesBackColor = '#1a2630';
@@ -834,6 +836,9 @@ export class Scope extends EventEmitter implements iSessionDataSource {
                 // buttons
                 this.RenderButtons(ctx);
 
+                // title
+                this.RenderTitle(ctx);
+
 
 //                this.BlitAll(ctx, ctx_on);
 
@@ -1204,7 +1209,7 @@ export class Scope extends EventEmitter implements iSessionDataSource {
                                     if (scale_y_axis_to_this_channel) {
                                         if (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) {
                                             if (y > nMaxY) nMaxY = y;
-                                            else if (y < nMinY) nMinY = y;
+                                            if (y < nMinY) nMinY = y;
                                         } else  //
                                             nMinY = nMaxY = y;
                                         if (idx == num_frames_to_display-1)
@@ -1276,7 +1281,7 @@ export class Scope extends EventEmitter implements iSessionDataSource {
                                     if (scale_y_axis_to_this_channel) {
                                         if (this.AutoYAxisAdjustBehaviour === AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible) {
                                             if (y > nMaxY) nMaxY = y;
-                                            else if (y < nMinY) nMinY = y;
+                                            if (y < nMinY) nMinY = y;
                                         } else  //
                                             nMinY = nMaxY = y;
                                         if (idx == num_frames_to_display-1)
@@ -1614,6 +1619,11 @@ export class Scope extends EventEmitter implements iSessionDataSource {
     }
 
 
+    private RenderTitle(ctx: CanvasRenderingContext2D) {
+        ctx.font = this.TitleFont;
+        GDIPlus.GCH.DrawString(ctx, this.Title, this.ForeColor, this.gBounds.x + this.gBounds.width / 2, 22, { H: GDIPlus.TextHorizontalAlign.Center, V: TextVerticalAlign.Middle });
+
+    }
 }
 
 enum Area {

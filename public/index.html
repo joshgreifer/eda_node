@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>HID Device reader</title>
+    <title>Mind Heart Tech</title>
     <style>
         :root {
             /*  Globally used vars */
-            --theme-background-image: linear-gradient(#a4b7af, #5a6b5e, #a4b7af);
+            --theme-background-image: linear-gradient(#a4b7af, #7a8d7d, #a4b7af);
             /*  PracticeComponent vars */
             --word-popup-bg-color: rgba(224, 224, 224, 0.6);
 
@@ -20,7 +20,7 @@
             display: none;
         }
         .app-container {
-            background-image: var(--theme-background-image);
+           background-image: var(--theme-background-image);
             margin: 2px;
             font-size: 14px;
             font-family: Arial,sans-serif;
@@ -36,7 +36,7 @@
                 "ft";
         }
         .page {
-
+            border: 1px solid #5a6b5e;
         }
         .pages {
             grid-area: pages;
@@ -44,8 +44,8 @@
 
         .header {
             grid-area: hd;
-
-            border-bottom: 1px solid rgba(0,0,0,0.2);
+            margin: 0;
+            /*border-bottom: 1px solid rgba(0,0,0,0.2);*/
 
 
         }
@@ -59,13 +59,25 @@
 
         button {
             border-radius: 5px;
+
         }
 
         .page-switcher {
-            border-radius: 5px 5px 0 0;
-            margin: 0;
-        }
 
+            font-weight: bold;
+            border: 1px solid #5a6b5e;
+            border-radius: 5px 5px 0 0;
+            color: #5a6b5e;
+            background-color: #a4b7af;
+            margin: 0;
+            position: relative;
+            bottom: -11px;
+
+        }
+        .page-switcher:disabled {
+            color: #ffffff;
+            border-bottom:  1px solid #a4b7af;
+        }
         .settings {
             font-size: 14px;
         }
@@ -229,7 +241,8 @@ Decrease this value if valid event-related responses are being missed by the sys
             <facedetect-element enabled="false"></facedetect-element>
         </div>
         <div class="page" id="page-4">
-            <scope-element id="ppg-eda-scope" height="50vh"  width="70vw" class="ppg-eda-scope" title="PPG/EDA"></scope-element>
+            <scope-element id="eda-scope" height="40vh"  width="95vw" title="MindHeart Tech EDA"></scope-element>
+            <scope-element id="ppg-scope" height="40vh"  width="95vw" title="MindHeart Tech PPG"></scope-element>
         </div>
     </div>
 

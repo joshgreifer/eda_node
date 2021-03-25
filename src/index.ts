@@ -47,7 +47,7 @@ import {
     Scope,
     SignalFollowBehaviour
 } from "./Scope";
-import {get_devices_status, open_device} from "./Api";
+import {get_devices_status, load_json, open_device} from "./Api";
 import {SpeechService} from "./SpeechService";
 import {SigProc} from "./SigProc";
 import {SessionManagerElement} from "./custom-elements/SessionManagerElement";
@@ -56,6 +56,7 @@ import EDAAnalyzer = SigProc.EDAAnalyzer;
 import {ScopeMarkerEditorElement} from "./custom-elements/ScopeMarkerEditor";
 import {iDataConnection} from "./DataConnection";
 import ResponseAnalyserParams = SigProc.ResponseAnalyserParams;
+import {GetSettings, Settings} from "./Settings";
 
 
 
@@ -98,7 +99,8 @@ c.info('App Loaded.');
 
 const scopeEl_SCR = document.querySelector('.scr') as ScopeElement;
 const scopeEl_SCL = document.querySelector('.scl') as ScopeElement;
-const scopeEl_PPG = document.querySelector('.ppg-eda-scope') as ScopeElement;
+const scopeEl_PPG = document.querySelector('#ppg-scope') as ScopeElement;
+const scopeEl_EDA = document.querySelector('#eda-scope') as ScopeElement;
 
 const usbDeviceConnectionEl = document.querySelector('#usb-device-connection') as WebSocketDataConnectionElement;
 const serialPortDeviceConnectionEl = document.querySelector('#serial-port-device-connection') as WebSocketDataConnectionElement;
@@ -110,7 +112,7 @@ const statusIndicatorSerialPortDevice = document.querySelector('#serial-port-dev
 const scopeSCR: Scope = scopeEl_SCR.Scope;
 const scopeSCL: Scope = scopeEl_SCL.Scope;
 const scopePPG: Scope = scopeEl_PPG.Scope;
-
+const scopeEDA: Scope = scopeEl_EDA.Scope;
 const edaAnalyzer: EDAAnalyzer = new EDAAnalyzer(usbDeviceConnectionEl.Connection);
 
 edaAnalyzer.responseAnalyser.on('response', (phase: SigProc.ResponsePhase) => {
@@ -127,9 +129,10 @@ edaAnalyzer.responseAnalyser.on('response', (phase: SigProc.ResponsePhase) => {
 Marker.ColorMap['Cue'] = "#ffffff";
 Marker.ColorMap['Test'] = "#ff0000";
 
-scopeSCR.Title  = "Skin Conductance Response";
-scopeSCL.Title = "Skin Conductance Level";
-scopePPG.Title = "Combined PPG/EDA";
+// scopeSCR.Title  = "Skin Conductance Response";
+// scopeSCL.Title = "Skin Conductance Level";
+// scopePPG.Title = "MindHeart PPG";
+// scopeEDA.Title = "MindHeart EDA";
 
 scopeSCR.ChannelInfo = [
     {
@@ -180,7 +183,7 @@ scopePPG.ChannelInfo = [
     {
         Name: 'EDA',
         Color: '#00ff00',
-        Visible: true,
+        Visible: false,
         RenderStyle: RenderStyle.Step,
         DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
     },
@@ -193,8 +196,24 @@ scopePPG.ChannelInfo = [
     }
 ];
 
+scopeEDA.ChannelInfo = [
+    {
+        Name: 'EDA',
+        Color: '#00ff00',
+        Visible: true,
+        RenderStyle: RenderStyle.Step,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    },
+    {
+        Name: 'PPG',
+        Color: '#ffc200',
+        Visible: false,
+        RenderStyle: RenderStyle.Step,
+        DownSampleAlgorithm:  DownSampleAlgorithm.MinMax
+    }
+];
 // set common properties for all scopes
-for (const scope of [scopeSCR, scopeSCL, scopePPG]) {
+for (const scope of [scopeSCR, scopeSCL, scopePPG, scopeEDA]) {
     scope.SampleUnitMultiplier = 1;
     scope.AutoYAxisAdjustBehaviour = AutoYAxisAdjustBehaviour.EnsureAllSamplesVisible;
     scope.SignalFollowBehaviour = SignalFollowBehaviour.Scroll;
@@ -203,6 +222,7 @@ for (const scope of [scopeSCR, scopeSCL, scopePPG]) {
     scope.DataWidth = 30;
 }
 
+
 scopeSCR.Connection = edaAnalyzer.SCR;
 scopeSCR.AddSlave(scopeSCL);
 
@@ -210,7 +230,14 @@ scopeSCL.TimeAxisVisible = false;
 scopeSCL.Connection = edaAnalyzer.SCL;
 scopeSCL.BackColor = '#001414'
 
+scopeEDA.AutoYAxisAdjustChannel = 0;
+scopePPG.AddSlave(scopeEDA);
+scopeEDA.TimeAxisVisible = false;
+scopePPG.AutoYAxisAdjustChannel = 1;
 
+
+
+scopeEDA.Connection = serialPortDeviceConnectionEl.Connection;
 scopePPG.Connection = serialPortDeviceConnectionEl.Connection;
 
 console.info('Connected scopes to websocket.');
@@ -391,9 +418,12 @@ enum DeviceId {
     MINDLIFE_BT_PPG_EDA
 }
 
+
+
+
 window.setInterval(() => {
     (async () => {
-
+        const settings = await GetSettings();
         const statuses = await get_devices_status();
 
         const eda_device_status = statuses[DeviceId.MINDLIFE_HID_EDA];
@@ -406,7 +436,7 @@ window.setInterval(() => {
             await open_device(1240, 61281)
         }
         if (ppg_eda_device_status.code === DeviceConnectionStatusCode.DISCONNECTED) {
-            await open_device("COM7");
+            await open_device(settings.serialport);
         }
 
     } )();

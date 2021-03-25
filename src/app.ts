@@ -86,6 +86,7 @@ app.post('/save/:filename', jsonParser, ( req: Request, res: Response ) => {
         let filename = req.params.filename;
         if (!filename.endsWith('.json'))
             filename += '.json'
+        filename = path.join(path.join(__dirname, 'public'), filename);
         const obj = req.body;
         const fd = fs.openSync(filename, "w");
         fs.writeSync(fd, JSON.stringify(obj));
@@ -108,6 +109,7 @@ app.get('/load/:filename', ( req: Request, res: Response ) => {
         let filename = req.params.filename;
         if (!filename.endsWith('.json'))
             filename += '.json'
+        filename = path.join(path.join(__dirname, 'public'), filename);
         const data = JSON.parse(fs.readFileSync(filename, 'utf-8'));
         res.write(JSON.stringify({
             data: data,
@@ -159,7 +161,12 @@ app.get('/open/:vid/:pid', ( req: Request, res: Response ) => {
             const  device_port = new SerialPort(req.params.vid, {
                 // baudRate: 19200,
                 autoOpen: true
-            }, (err) => { if (err) throw err});
+            }, (e) => {
+                if (e) {
+                    status.code = DeviceConnectionStatusCode.DISCONNECTED;
+                    status.message = e.toString();
+                }
+            });
 
             // device_port.open((err) => { if (err) throw err; });
             const device_parser = device_port.pipe(new ByteLength({length: 6}));
