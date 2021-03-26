@@ -2,11 +2,11 @@ import {BufferData, iDataConnection} from "./DataConnection";
 import {DeviceStatus} from "./DeviceStatus";
 
 
-export async function open_device(vid: number | string, pid?:number): Promise<DeviceStatus> {
+export async function open_hid_device(vid: number | string, pid?:number): Promise<DeviceStatus> {
 
     if (pid === undefined)
         pid = 0;
-    const api_response = await fetch(`/open/${vid}/${pid}`, {
+    const api_response = await fetch(`/open/hid/${vid}/${pid}`, {
         method: 'get',
         headers: {
             'Accept': 'application/json',
@@ -16,6 +16,21 @@ export async function open_device(vid: number | string, pid?:number): Promise<De
     return await api_response.json();
 }
 
+export async function open_serial_device(path: string): Promise<DeviceStatus> {
+
+
+    path = path.replace('/dev/', '');
+    // Express treats path seps in parameters as url paths
+    // Remove the /dev/ here and add it back in the server api method
+    const api_response = await fetch(`/open/dev/${path}/`, {
+        method: 'get',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+    } );
+    return await api_response.json();
+}
 export async function get_devices_status(): Promise<DeviceStatus []> {
     const api_response = await fetch(`/status`, {
         method: 'get',

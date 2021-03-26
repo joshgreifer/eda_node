@@ -47,7 +47,7 @@ import {
     Scope,
     SignalFollowBehaviour
 } from "./Scope";
-import {get_devices_status, load_json, open_device} from "./Api";
+import {get_devices_status, open_hid_device, open_serial_device} from "./Api";
 import {SpeechService} from "./SpeechService";
 import {SigProc} from "./SigProc";
 import {SessionManagerElement} from "./custom-elements/SessionManagerElement";
@@ -433,10 +433,10 @@ window.setInterval(() => {
         statusIndicatorSerialPortDevice.innerHTML = ppg_eda_device_status.message;
 
         if (eda_device_status.code === DeviceConnectionStatusCode.DISCONNECTED) {
-            await open_device(1240, 61281)
+            await open_hid_device(1240, 61281)
         }
         if (ppg_eda_device_status.code === DeviceConnectionStatusCode.DISCONNECTED) {
-            await open_device(settings.serialport);
+            await open_serial_device(settings.serialport);
         }
 
     } )();

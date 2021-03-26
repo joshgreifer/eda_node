@@ -1,3 +1,3 @@
 {
-  "serialport" : "COM7"
+  "serialport" : "/dev/tty.Mind_Heart_Tech-SerialP"
 }
