@@ -198,6 +198,12 @@ app.get('/open/dev/:device_path', ( req: Request, res: Response ) => {
     res.end();
 });
 
+app.get('/open/com/:device_port', ( req: Request, res: Response ) => {
+    res.set('Content-Type', 'application/json');
+    open_serial_port( req.params.device_port, res);
+    res.end();
+});
+
 app.get('/open/hid/:vid/:pid', ( req: Request, res: Response ) => {
 
     res.set('Content-Type', 'application/json');

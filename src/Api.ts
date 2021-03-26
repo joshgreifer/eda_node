@@ -19,10 +19,14 @@ export async function open_hid_device(vid: number | string, pid?:number): Promis
 export async function open_serial_device(path: string): Promise<DeviceStatus> {
 
 
-    path = path.replace('/dev/', '');
+    const isUnixPath = path.startsWith('/dev/');
+    if (isUnixPath)
+        path = path.replace('/dev/', '');
+
+    const endpoint = isUnixPath ? `/open/dev/${path}/` : `/open/com/${path}/`;
     // Express treats path seps in parameters as url paths
     // Remove the /dev/ here and add it back in the server api method
-    const api_response = await fetch(`/open/dev/${path}/`, {
+    const api_response = await fetch(endpoint, {
         method: 'get',
         headers: {
             'Accept': 'application/json',
